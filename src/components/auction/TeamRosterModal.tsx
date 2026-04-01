@@ -31,11 +31,17 @@ export default function TeamRosterModal({
   const handleExport = async () => {
     if (!rosterRef.current || !team) return;
     setIsExporting(true);
+    
+    // Give React time to remove the overflow-y-auto class and expand the div
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     try {
       const canvas = await html2canvas(rosterRef.current, {
         backgroundColor: '#1E2330', // dark-800
         scale: 2,
         useCORS: true,
+        windowWidth: rosterRef.current.scrollWidth,
+        windowHeight: rosterRef.current.scrollHeight
       });
       
       const dataUrl = canvas.toDataURL('image/png');
@@ -81,8 +87,8 @@ export default function TeamRosterModal({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-dark-900/80 backdrop-blur-sm animate-fadeIn">
-      <div ref={rosterRef} className="bg-dark-800 rounded-xl w-full max-w-5xl shadow-2xl border border-dark-700 flex flex-col max-h-[90vh] animate-slideUp">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-dark-900/80 backdrop-blur-sm animate-fadeIn ${isExporting ? 'overflow-y-auto items-start' : ''}`}>
+      <div ref={rosterRef} className={`bg-dark-800 rounded-xl w-full max-w-5xl shadow-2xl border border-dark-700 flex flex-col ${isExporting ? 'h-auto mt-4 mb-4' : 'max-h-[90vh]'} animate-slideUp`}>
         
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-dark-700">
@@ -110,7 +116,7 @@ export default function TeamRosterModal({
         </div>
 
         {/* Content */}
-        <div className="p-4 sm:p-6 overflow-y-auto">
+        <div className={`p-4 sm:p-6 ${isExporting ? '' : 'overflow-y-auto'}`}>
           {sortedPlayers.length === 0 ? (
             <div className="text-center py-12">
               <div className="inline-block p-4 rounded-full bg-dark-700 mb-4">
@@ -120,17 +126,17 @@ export default function TeamRosterModal({
               <p className="text-dark-400">This team hasn't purchased any players.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-dark-700">
+            <div className={`overflow-x-auto rounded-lg border border-dark-700 ${isExporting ? 'overflow-visible' : ''}`}>
               <table className="w-full text-left border-collapse min-w-[700px]">
                 <thead>
-                  <tr className="bg-primary-600 text-white text-sm uppercase tracking-wider">
-                    <th className="p-4 font-black">Photo</th>
-                    <th className="p-4 font-black">Player Name</th>
-                    <th className="p-4 font-black">Age</th>
-                    <th className="p-4 font-black">Player Type</th>
-                    <th className="p-4 font-black">Role</th>
-                    {!hidePoints && <th className="p-4 font-black text-right">Points</th>}
-                    {!readOnly && <th data-html2canvas-ignore className="p-4 font-black text-center">Edit</th>}
+                  <tr className="bg-primary-600 text-white text-xs sm:text-sm uppercase tracking-wider">
+                    <th className="px-3 py-2 sm:p-4 font-black min-w-[60px]">Photo</th>
+                    <th className="px-3 py-2 sm:p-4 font-black w-1/3">Player Name</th>
+                    <th className="px-3 py-2 sm:p-4 font-black w-[10%]">Age</th>
+                    <th className="px-3 py-2 sm:p-4 font-black w-[15%]">Player Type</th>
+                    <th className="px-3 py-2 sm:p-4 font-black w-[15%]">Role</th>
+                    {!hidePoints && <th className="px-3 py-2 sm:p-4 font-black text-right w-[15%]">Points</th>}
+                    {!readOnly && <th data-html2canvas-ignore className="px-3 py-2 sm:p-4 font-black text-center w-[10%]">Edit</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-dark-700 bg-dark-800/50">
@@ -144,9 +150,9 @@ export default function TeamRosterModal({
                     if (player.isOwner) displayTag = 'OWNER';
 
                     return (
-                      <tr key={player.id} className="hover:bg-dark-700 transition-colors">
-                        <td className="p-4">
-                          <div className="w-12 h-12 rounded-full bg-dark-600 overflow-hidden flex items-center justify-center border-2 border-dark-700">
+                      <tr key={player.id} className="hover:bg-dark-700 transition-colors group/row">
+                        <td className="px-3 py-2 sm:p-4">
+                          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-dark-600 overflow-hidden flex items-center justify-center border border-dark-700">
                             {photoUrl ? (
                               <button onClick={() => setEnlargedImage(photoUrl)} className="w-full h-full relative group block" title="View Photo">
                                 <img src={photoUrl} alt={player.name} className="w-full h-full object-cover" />
@@ -155,21 +161,21 @@ export default function TeamRosterModal({
                                 </div>
                               </button>
                             ) : (
-                              <UserIcon className="w-6 h-6 text-dark-400" />
+                              <UserIcon className="w-5 h-5 text-dark-400" />
                             )}
                           </div>
                         </td>
-                        <td className="p-4">
-                          <div className="font-bold text-white text-lg">{player.name}</div>
+                        <td className="px-3 py-2 sm:p-4">
+                          <div className="font-bold text-white text-sm sm:text-base">{player.name}</div>
                           {player.fatherName && (
-                            <div className="text-xs text-dark-400 mt-1">S/o: {player.fatherName}</div>
+                            <div className="text-[10px] sm:text-xs text-dark-400 mt-0.5">S/o: {player.fatherName}</div>
                           )}
                         </td>
-                        <td className="p-4 text-dark-300 font-medium">
+                        <td className="px-3 py-2 sm:p-4 text-dark-300 font-medium text-sm">
                           {player.age ? `${player.age}` : '-'}
                         </td>
-                        <td className="p-4">
-                          <span className={`inline-block px-3 py-1 text-xs font-black uppercase rounded-full ${
+                        <td className="px-3 py-2 sm:p-4">
+                          <span className={`inline-block px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-black uppercase rounded-full ${
                             displayTag === 'ICON' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' :
                             displayTag === 'OWNER' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
                             displayTag === 'CAPTAIN' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
@@ -178,22 +184,22 @@ export default function TeamRosterModal({
                             {displayTag}
                           </span>
                         </td>
-                        <td className="p-4 text-dark-300 font-medium">
+                        <td className="px-3 py-2 sm:p-4 text-dark-300 font-medium text-xs sm:text-sm">
                           {player.role || player.category || '-'}
                         </td>
                         {!hidePoints && (
-                          <td className="p-4 text-right font-black text-xl text-primary-400">
+                          <td className="px-3 py-2 sm:p-4 text-right font-black text-base sm:text-lg text-primary-400">
                             {player.soldPrice?.toLocaleString() || '0'}
                           </td>
                         )}
                         {!readOnly && (
-                          <td data-html2canvas-ignore className="p-4 text-center">
+                          <td data-html2canvas-ignore className="px-3 py-2 sm:p-4 text-center">
                             <button
                               onClick={() => setEditingPlayer(player)}
-                              className="p-2 rounded-md bg-dark-700 hover:bg-primary-500/20 text-dark-400 hover:text-primary-500 transition-colors"
+                              className="p-1.5 sm:p-2 rounded-md bg-transparent hover:bg-dark-700 text-dark-500 hover:text-primary-400 transition-colors opacity-100 sm:opacity-0 sm:group-hover/row:opacity-100"
                               title="Edit Player"
                             >
-                              <Edit2 className="w-4 h-4" />
+                              <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </button>
                           </td>
                         )}
