@@ -3,6 +3,180 @@ import { X, Camera, FileText } from 'lucide-react';
 import { Player } from '../../types';
 import { compressImage } from '../../utils/image';
 
+const SPORT_PLAYER_OPTIONS = {
+  cricket: {
+    roles: ['Batsman', 'Bowler', 'All Rounder', 'Wicket Keeper'],
+    specifications: ['Batsman', 'Bowler', 'All Rounder', 'All Rounder WK', 'Wicket Keeper'],
+    skillsBySpec: {
+      Batsman: ['Opening Batter', 'Top Order Batter', 'Middle Order Batter', 'Finisher', 'Anchor', 'Power Hitter'],
+      Bowler: ['Right Arm Fast', 'Right Arm Medium', 'Left Arm Medium', 'Off-Break', 'Leg-Break', 'Left Arm Orthodox', 'Left Arm Chinaman'],
+      'All Rounder': ['Batting All Rounder', 'Bowling All Rounder', 'Pace All Rounder', 'Spin All Rounder'],
+      'All Rounder WK': ['Batting All Rounder', 'Wicket Keeper Batter', 'Finisher'],
+      'Wicket Keeper': ['Wicket Keeper Batter', 'Top Order Keeper', 'Middle Order Keeper'],
+    } as Record<string, string[]>,
+  },
+  football: {
+    roles: ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'],
+    specifications: ['Goalkeeper', 'Center Back', 'Full Back', 'Defensive Midfielder', 'Central Midfielder', 'Attacking Midfielder', 'Winger', 'Striker'],
+    skillsBySpec: {
+      Goalkeeper: ['Shot Stopper', 'Sweeper Keeper', 'Penalty Specialist', 'Ball Distributor'],
+      'Center Back': ['Man Marker', 'Ball Playing Defender', 'Aerial Defender', 'Tackling Specialist'],
+      'Full Back': ['Overlapping Runner', 'Defensive Full Back', 'Cross Specialist', 'Inverted Full Back'],
+      'Defensive Midfielder': ['Ball Winner', 'Deep-Lying Playmaker', 'Anchor', 'Press Resistant'],
+      'Central Midfielder': ['Box-to-Box', 'Tempo Controller', 'Playmaker', 'Ball Carrier'],
+      'Attacking Midfielder': ['Chance Creator', 'Advanced Playmaker', 'Set Piece Specialist', 'Dribbler'],
+      Winger: ['Pace Dribbler', 'Inverted Winger', 'Cross Specialist', 'Wide Playmaker'],
+      Striker: ['Poacher', 'Target Man', 'False 9', 'Pressing Forward'],
+      Defender: ['Tackling Specialist', 'Man Marker', 'Ball Playing Defender'],
+      Midfielder: ['Playmaker', 'Ball Winner', 'Box-to-Box'],
+      Forward: ['Poacher', 'Target Man', 'Pressing Forward'],
+    } as Record<string, string[]>,
+  },
+  nba: {
+    roles: ['Point Guard', 'Shooting Guard', 'Small Forward', 'Power Forward', 'Center'],
+    specifications: ['Point Guard', 'Shooting Guard', 'Small Forward', 'Power Forward', 'Center', 'Combo Guard', 'Stretch Four', 'Sixth Man'],
+    skillsBySpec: {
+      'Point Guard': ['Playmaker', 'Floor General', 'Pick-and-Roll Specialist', 'Perimeter Defender'],
+      'Shooting Guard': ['Sharpshooter', 'Slasher', 'Two-Way Guard', 'Shot Creator'],
+      'Small Forward': ['Two-Way Wing', 'Perimeter Scorer', 'Defensive Stopper', 'Athletic Finisher'],
+      'Power Forward': ['Rebounder', 'Stretch Four', 'Post Scorer', 'Rim Protector'],
+      Center: ['Rim Protector', 'Post Anchor', 'Rebound Machine', 'Lob Threat'],
+      'Combo Guard': ['Primary Ball Handler', 'Secondary Playmaker', 'Transition Finisher'],
+      'Stretch Four': ['Corner Shooter', 'Pick-and-Pop Specialist', 'Floor Spacer'],
+      'Sixth Man': ['Microwave Scorer', 'Bench Playmaker', 'Energy Booster'],
+    } as Record<string, string[]>,
+  },
+  tennis: {
+    roles: ['Singles', 'Doubles', 'All Court Player'],
+    specifications: ['Baseline Player', 'Serve and Volley', 'Counter Puncher', 'Aggressive Baseliner', 'Doubles Specialist'],
+    skillsBySpec: {
+      'Baseline Player': ['Topspin Rally', 'Forehand Dominance', 'Backhand Control'],
+      'Serve and Volley': ['Big Serve', 'Net Rush', 'Reflex Volley'],
+      'Counter Puncher': ['Defensive Retrieval', 'Consistency', 'Passing Shot'],
+      'Aggressive Baseliner': ['Power Groundstrokes', 'Inside-Out Forehand', 'Early Ball Strike'],
+      'Doubles Specialist': ['Poaching', 'Net Positioning', 'Team Communication'],
+      Singles: ['Endurance', 'Court Coverage', 'Point Construction'],
+      Doubles: ['Net Reflex', 'Serve Return', 'Formation Awareness'],
+      'All Court Player': ['Adaptive Strategy', 'Transition Game', 'Shot Variety'],
+    } as Record<string, string[]>,
+  },
+  volleyball: {
+    roles: ['Setter', 'Outside Hitter', 'Opposite', 'Middle Blocker', 'Libero'],
+    specifications: ['Setter', 'Outside Hitter', 'Opposite', 'Middle Blocker', 'Libero', 'Defensive Specialist'],
+    skillsBySpec: {
+      Setter: ['Quick Set', 'Jump Set', 'Game Reading'],
+      'Outside Hitter': ['Cross-Court Spike', 'Serve Receive', 'Back Row Attack'],
+      Opposite: ['Power Spike', 'Block Timing', 'Transition Hitting'],
+      'Middle Blocker': ['Quick Attack', 'Read Block', 'First Tempo'],
+      Libero: ['Digging', 'Serve Receive', 'Floor Defense'],
+      'Defensive Specialist': ['Coverage', 'Emergency Set', 'Back Court Control'],
+    } as Record<string, string[]>,
+  },
+  badminton: {
+    roles: ['Singles', 'Doubles', 'Mixed Doubles'],
+    specifications: ['Attacking Player', 'Defensive Player', 'All-Round Player', 'Front Court Specialist', 'Back Court Specialist'],
+    skillsBySpec: {
+      'Attacking Player': ['Jump Smash', 'Steep Smash', 'Fast Drive'],
+      'Defensive Player': ['Lift Control', 'Counter Defense', 'Net Retrieval'],
+      'All-Round Player': ['Balanced Rally', 'Transition Speed', 'Shot Variation'],
+      'Front Court Specialist': ['Net Kill', 'Net Tumble', 'Quick Interception'],
+      'Back Court Specialist': ['Clear Length', 'Smash Setup', 'Drop Shot Accuracy'],
+      Singles: ['Stamina', 'Court Coverage', 'Deception'],
+      Doubles: ['Rotation', 'Fast Exchanges', 'Communication'],
+      'Mixed Doubles': ['Front-Back Coordination', 'Serve Return Pressure', 'Net Dominance'],
+    } as Record<string, string[]>,
+  },
+  kabadi: {
+    roles: ['Raider', 'Defender', 'All Rounder'],
+    specifications: ['Left Raider', 'Right Raider', 'Cover Defender', 'Corner Defender', 'All Rounder'],
+    skillsBySpec: {
+      'Left Raider': ['Toe Touch', 'Hand Touch', 'Bonus Point Specialist'],
+      'Right Raider': ['Running Hand Touch', 'Dubki', 'Escape Artist'],
+      'Cover Defender': ['Ankle Hold', 'Block', 'Chain Tackle'],
+      'Corner Defender': ['Thigh Hold', 'Dash', 'Do-or-Die Defense'],
+      'All Rounder': ['Multi-Role Impact', 'Stamina', 'Decision Making'],
+      Raider: ['Quick Raids', 'Bonus Line Control', 'Revival Play'],
+      Defender: ['Tackle Timing', 'Coordination', 'Mat Awareness'],
+    } as Record<string, string[]>,
+  },
+};
+
+type SportType = keyof typeof SPORT_PLAYER_OPTIONS;
+
+const getSportType = (sport?: string): SportType => {
+  const name = (sport || '').toLowerCase();
+  if (name.includes('football')) return 'football';
+  if (name.includes('nba') || name.includes('basketball')) return 'nba';
+  if (name.includes('tennis')) return 'tennis';
+  if (name.includes('volleyball')) return 'volleyball';
+  if (name.includes('badminton')) return 'badminton';
+  if (name.includes('kabadi') || name.includes('kabaddi')) return 'kabadi';
+  return 'cricket';
+};
+
+const getSkillOptions = (sportType: SportType, specification?: string, role?: string) => {
+  const skillsBySpec = SPORT_PLAYER_OPTIONS[sportType].skillsBySpec;
+  if (specification && skillsBySpec[specification]) {
+    return skillsBySpec[specification];
+  }
+  if (role && skillsBySpec[role]) {
+    return skillsBySpec[role];
+  }
+  return [];
+};
+
+const getFieldTextBySport = (sportType: SportType) => {
+  switch (sportType) {
+    case 'football':
+    case 'nba':
+      return {
+        roleLabel: 'Position',
+        roleHint: 'Select primary on-field/court position.',
+        specLabel: 'Position Profile',
+        specHint: 'Choose specific playing profile.',
+        skillLabel: 'Core Skill',
+        skillHint: 'Pick strongest competitive skill.',
+      };
+    case 'tennis':
+    case 'badminton':
+      return {
+        roleLabel: 'Category',
+        roleHint: 'Choose event category.',
+        specLabel: 'Play Style',
+        specHint: 'Select preferred playing style.',
+        skillLabel: 'Key Strength',
+        skillHint: 'Pick strongest match skill.',
+      };
+    case 'volleyball':
+      return {
+        roleLabel: 'Court Role',
+        roleHint: 'Select main court role.',
+        specLabel: 'Specialization',
+        specHint: 'Choose focused responsibility.',
+        skillLabel: 'Core Skill',
+        skillHint: 'Pick strongest volleyball skill.',
+      };
+    case 'kabadi':
+      return {
+        roleLabel: 'Role',
+        roleHint: 'Choose kabadi role.',
+        specLabel: 'Play Side',
+        specHint: 'Select tactical side/profile.',
+        skillLabel: 'Key Skill',
+        skillHint: 'Pick strongest kabadi move.',
+      };
+    default:
+      return {
+        roleLabel: 'Role / Category',
+        roleHint: 'Choose primary cricket role.',
+        specLabel: 'Specification',
+        specHint: 'Choose detailed specialization.',
+        skillLabel: 'Skill',
+        skillHint: 'Pick strongest cricket skill.',
+      };
+  }
+};
+
 interface EditPlayerModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -23,12 +197,43 @@ export default function EditPlayerModal({ isOpen, onClose, player, onSave }: Edi
 
   if (!isOpen || !formData) return null;
 
+  const sportType = getSportType(formData.sport);
+  const roleOptions = SPORT_PLAYER_OPTIONS[sportType].roles;
+  const specificationOptions = SPORT_PLAYER_OPTIONS[sportType].specifications;
+  const fieldText = getFieldTextBySport(sportType);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => prev ? {
-      ...prev,
-      [name]: name === 'age' || name === 'soldPrice' ? Number(value) : value
-    } : null);
+    setFormData(prev => {
+      if (!prev) return null;
+
+      if (name === 'specification') {
+        const nextSportType = getSportType(prev.sport);
+        const nextSkills = getSkillOptions(nextSportType, value, prev.role);
+        const shouldResetSkill = prev.skill ? !nextSkills.includes(prev.skill) : false;
+        return {
+          ...prev,
+          specification: value,
+          skill: shouldResetSkill ? '' : prev.skill,
+        };
+      }
+
+      if (name === 'role') {
+        const nextSportType = getSportType(prev.sport);
+        const nextSkills = getSkillOptions(nextSportType, prev.specification, value);
+        const shouldResetSkill = prev.skill ? !nextSkills.includes(prev.skill) : false;
+        return {
+          ...prev,
+          role: value,
+          skill: shouldResetSkill ? '' : prev.skill,
+        };
+      }
+
+      return {
+        ...prev,
+        [name]: name === 'age' || name === 'soldPrice' ? Number(value) : value,
+      };
+    });
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'photoUrl' | 'secondReferenceUrl') => {
@@ -51,6 +256,8 @@ export default function EditPlayerModal({ isOpen, onClose, player, onSave }: Edi
     e.preventDefault();
     if (formData) onSave(formData);
   };
+
+  const availableSkills = getSkillOptions(sportType, formData.specification, formData.role);
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-dark-900/90 backdrop-blur-sm animate-fadeIn">
@@ -156,37 +363,33 @@ export default function EditPlayerModal({ isOpen, onClose, player, onSave }: Edi
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-dark-400 mb-1">Role / Category</label>
-                <select name="role" className="input-field" value={formData.role || 'Batsman'} onChange={handleInputChange}>
-                  <option value="Batsman">Batsman</option>
-                  <option value="Bowler">Bowler</option>
-                  <option value="All Rounder">All Rounder</option>
-                  <option value="Wicket Keeper">Wicket Keeper</option>
+                <label className="block text-sm font-medium text-dark-400 mb-1">{fieldText.roleLabel}</label>
+                <select name="role" className="input-field" value={formData.role || roleOptions[0]} onChange={handleInputChange}>
+                  {roleOptions.map(role => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
                 </select>
+                <p className="text-[10px] text-dark-500 mt-1">{fieldText.roleHint}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-dark-400 mb-1">Specification</label>
+                <label className="block text-sm font-medium text-dark-400 mb-1">{fieldText.specLabel}</label>
                 <select name="specification" className="input-field" value={formData.specification || ''} onChange={handleInputChange}>
                   <option value="">-- None --</option>
-                  <option value="Batsman">Batsman</option>
-                  <option value="Bowler">Bowler</option>
-                  <option value="All Rounder">All Rounder</option>
-                  <option value="All Rounder WK">All Rounder WK</option>
-                  <option value="Wicket Keeper">Wicket Keeper</option>
+                  {specificationOptions.map(spec => (
+                    <option key={spec} value={spec}>{spec}</option>
+                  ))}
                 </select>
+                <p className="text-[10px] text-dark-500 mt-1">{fieldText.specHint}</p>
               </div>
                <div>
-                <label className="block text-sm font-medium text-dark-400 mb-1">Skill</label>
+                <label className="block text-sm font-medium text-dark-400 mb-1">{fieldText.skillLabel}</label>
                 <select name="skill" className="input-field" value={formData.skill || ''} onChange={handleInputChange}>
                   <option value="">-- None --</option>
-                  <option value="Right Arm Fast">Right Arm Fast</option>
-                  <option value="Right Arm Medium">Right Arm Medium</option>
-                  <option value="Left Arm Medium">Left Arm Medium</option>
-                  <option value="Off-Break">Off-Break</option>
-                  <option value="Leg-Break">Leg-Break</option>
-                  <option value="Left Arm Orthdox">Left Arm Orthdox</option>
-                  <option value="Left Arm Chinaman">Left Arm Chinaman</option>
+                  {availableSkills.map(skill => (
+                    <option key={skill} value={skill}>{skill}</option>
+                  ))}
                 </select>
+                <p className="text-[10px] text-dark-500 mt-1">{fieldText.skillHint}</p>
               </div>
             </div>
 

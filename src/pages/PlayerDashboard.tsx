@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { db } from '../services/db';
-import { Auction, AuctionRegistration } from '../types';
+import { Auction, AuctionRegistration, Team } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { format } from 'date-fns';
+import TeamRosterModal from '../components/auction/TeamRosterModal';
 import {
   Hash, Calendar, MapPin, Users, CheckCircle,
-  Clock, Zap, Shield,
+  Clock, Zap, Shield, Eye,
 } from 'lucide-react';
 
 export default function PlayerDashboard() {
@@ -13,6 +14,7 @@ export default function PlayerDashboard() {
   const [code, setCode] = useState('');
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [registrations, setRegistrations] = useState<AuctionRegistration[]>([]);
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const categories = db.getCategories();
 
   useEffect(() => {
@@ -30,6 +32,16 @@ export default function PlayerDashboard() {
   };
 
   const getAuction = (id: string): Auction | undefined => db.getAuction(id);
+  const getPlayerTeam = (playerId?: string, soldToTeamId?: string): Team | null => {
+    if (soldToTeamId) {
+      return db.getTeam(soldToTeamId) || null;
+    }
+    if (!playerId) {
+      return null;
+    }
+    const teams = db.getTeams();
+    return teams.find(team => team.ownerPlayerId === playerId || team.iconPlayerId === playerId) || null;
+  };
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -92,7 +104,7 @@ export default function PlayerDashboard() {
               if (!auction) return null;
               const cat = categories.find(c => c.id === auction.categoryId);
               const player = db.getPlayer(reg.playerId);
-              const soldTeam = player?.soldToTeamId ? db.getTeam(player.soldToTeamId) : null;
+              const soldTeam = getPlayerTeam(player?.id, player?.soldToTeamId);
 
               return (
                 <div key={reg.id} className="card p-5 hover:border-dark-600 transition-colors">
@@ -164,12 +176,31 @@ export default function PlayerDashboard() {
                   <div className="mt-3 text-xs text-dark-600">
                     Registered: {format(new Date(reg.registeredAt), 'MMM dd, yyyy · hh:mm a')}
                   </div>
+
+                  {player && soldTeam && (player.status === 'sold' || player.status === 'retained') && (
+                    <div className="mt-4 pt-4 border-t border-dark-700">
+                      <button
+                        onClick={() => setSelectedTeam(soldTeam)}
+                        className="w-full bg-dark-700 hover:bg-dark-600 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 py-2.5 px-4 transition-colors border border-dark-600"
+                      >
+                        <Eye className="w-4 h-4" /> View Team
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      <TeamRosterModal
+        isOpen={!!selectedTeam}
+        onClose={() => setSelectedTeam(null)}
+        team={selectedTeam}
+        readOnly={true}
+        hidePoints={true}
+      />
     </div>
   );
 }

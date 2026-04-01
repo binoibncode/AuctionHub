@@ -1,4 +1,4 @@
-import { User, SportCategory, AuctionItem, Bid, Auction, Team, Player, AuctionRegistration } from '../types';
+import { User, SportCategory, AuctionItem, Bid, Auction, Team, Player, AuctionRegistration, PricingPlan } from '../types';
 
 const INITIAL_CATEGORIES: SportCategory[] = [
   { id: '1', name: 'Football', icon: '⚽' },
@@ -8,7 +8,7 @@ const INITIAL_CATEGORIES: SportCategory[] = [
   { id: '5', name: 'Volleyball', icon: '🏐' },
   { id: '6', name: 'Table Tennis', icon: '🏓' },
   { id: '7', name: 'Badminton', icon: '🏸' },
-  { id: '8', name: 'Kabaddi', icon: '🤼' },
+  { id: '8', name: 'Kabadi', icon: '🤼' },
 ];
 
 const INITIAL_USERS: User[] = [
@@ -55,6 +55,18 @@ const INITIAL_ITEMS: AuctionItem[] = [
     status: 'upcoming',
     organizerId: 'org-1'
   }
+];
+
+// ─── Seed Pricing Plans ───────────────────────────────────────
+
+const INITIAL_PRICING_PLANS: PricingPlan[] = [
+  { id: 'plan-1', name: 'Free',    price: 0,    teams: 2,   features: ['Up to 2 Teams', 'Basic Auction Access'], recommended: false },
+  { id: 'plan-2', name: 'Starter', price: 3000, teams: 4,   features: ['Up to 4 Teams', 'Priority Support'], recommended: false },
+  { id: 'plan-3', name: 'Basic',   price: 4000, teams: 8,   features: ['Up to 8 Teams', 'Priority Support'], recommended: false },
+  { id: 'plan-4', name: 'Pro',     price: 5000, teams: 12,  features: ['Up to 12 Teams', 'Priority Analytics', 'Advanced Features'], recommended: true },
+  { id: 'plan-5', name: 'Growth',  price: 6000, teams: 16,  features: ['Up to 16 Teams', 'All Pro Features'], recommended: false },
+  { id: 'plan-6', name: 'Scale',   price: 7000, teams: 22,  features: ['Up to 22 Teams', 'All Pro Features'], recommended: false },
+  { id: 'plan-7', name: 'Elite',   price: 8000, teams: 30,  features: ['Unlimited Teams', 'All Pro Features', 'Dedicated Support'], recommended: false },
 ];
 
 // ─── Seed Draft Auctions ──────────────────────────────────────
@@ -176,15 +188,33 @@ class MockDatabase {
     localStorage.setItem(key, JSON.stringify(data));
   }
 
+  private syncCategories(): SportCategory[] {
+    const stored = this.get<SportCategory[]>('categories', INITIAL_CATEGORIES);
+    const byName = new Map(stored.map(c => [c.name.toLowerCase(), c]));
+
+    // Backfill categories introduced in newer app versions.
+    INITIAL_CATEGORIES.forEach(category => {
+      const key = category.name.toLowerCase();
+      if (!byName.has(key)) {
+        byName.set(key, category);
+      }
+    });
+
+    const merged = Array.from(byName.values());
+    this.set('categories', merged);
+    return merged;
+  }
+
   initialize() {
     this.get('users', INITIAL_USERS);
-    this.get('categories', INITIAL_CATEGORIES);
+    this.syncCategories();
     this.get('items', INITIAL_ITEMS);
     this.get('bids', [] as Bid[]);
     this.get('auctions', INITIAL_AUCTIONS);
     this.get('teams', INITIAL_TEAMS);
     this.get('players', INITIAL_PLAYERS);
     this.get('registrations', INITIAL_REGISTRATIONS);
+    this.get('pricingPlans', INITIAL_PRICING_PLANS);
   }
 
   // ─── Users ────────────────────────────────────
@@ -212,7 +242,7 @@ class MockDatabase {
 
   // ─── Categories ────────────────────────────────
 
-  getCategories(): SportCategory[] { return this.get('categories', INITIAL_CATEGORIES); }
+  getCategories(): SportCategory[] { return this.syncCategories(); }
 
   // ─── Legacy Auction Items ──────────────────────
 
@@ -457,6 +487,25 @@ class MockDatabase {
     player.status = 'unsold';
     this.savePlayer(player);
     return { success: true, message: `${player.name} marked as unsold.` };
+  }
+
+  // ─── Pricing Plans ────────────────────────────
+
+  getPricingPlans(): PricingPlan[] {
+    return this.get<PricingPlan[]>('pricingPlans', INITIAL_PRICING_PLANS);
+  }
+
+  savePricingPlan(plan: PricingPlan) {
+    const plans = this.getPricingPlans();
+    const idx = plans.findIndex(p => p.id === plan.id);
+    if (idx >= 0) plans[idx] = plan;
+    else plans.push(plan);
+    this.set('pricingPlans', plans);
+  }
+
+  deletePricingPlan(id: string) {
+    const plans = this.getPricingPlans().filter(p => p.id !== id);
+    this.set('pricingPlans', plans);
   }
 }
 

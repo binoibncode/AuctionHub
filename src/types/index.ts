@@ -76,6 +76,7 @@ export interface Team {
   pointsSpent: number;
   players: string[];         // Player IDs (sold players)
   logoUrl?: string;          // Team Logo
+  place?: string;             // Team home place/city
 }
 
 export interface Player {
@@ -116,4 +117,15 @@ export interface AuctionRegistration {
   userId: string;
   playerId: string;          // the Player entity created
   registeredAt: string;
+}
+
+// ─── Pricing Plans ───────────────────────────────
+
+export interface PricingPlan {
+  id: string;
+  name: string;
+  price: number;
+  teams: number;
+  features: string[];
+  recommended?: boolean;
 }

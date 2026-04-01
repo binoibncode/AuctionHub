@@ -11,9 +11,18 @@ interface TeamRosterModalProps {
   onClose: () => void;
   team: Team | null;
   onPlayerUpdate?: () => void;
+  readOnly?: boolean;
+  hidePoints?: boolean;
 }
 
-export default function TeamRosterModal({ isOpen, onClose, team, onPlayerUpdate }: TeamRosterModalProps) {
+export default function TeamRosterModal({
+  isOpen,
+  onClose,
+  team,
+  onPlayerUpdate,
+  readOnly = false,
+  hidePoints = false,
+}: TeamRosterModalProps) {
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -120,8 +129,8 @@ export default function TeamRosterModal({ isOpen, onClose, team, onPlayerUpdate 
                     <th className="p-4 font-black">Age</th>
                     <th className="p-4 font-black">Player Type</th>
                     <th className="p-4 font-black">Role</th>
-                    <th className="p-4 font-black text-right">Points</th>
-                    <th data-html2canvas-ignore className="p-4 font-black text-center">Edit</th>
+                    {!hidePoints && <th className="p-4 font-black text-right">Points</th>}
+                    {!readOnly && <th data-html2canvas-ignore className="p-4 font-black text-center">Edit</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-dark-700 bg-dark-800/50">
@@ -172,18 +181,22 @@ export default function TeamRosterModal({ isOpen, onClose, team, onPlayerUpdate 
                         <td className="p-4 text-dark-300 font-medium">
                           {player.role || player.category || '-'}
                         </td>
-                        <td className="p-4 text-right font-black text-xl text-primary-400">
-                          {player.soldPrice?.toLocaleString() || '0'}
-                        </td>
-                        <td data-html2canvas-ignore className="p-4 text-center">
-                          <button
-                            onClick={() => setEditingPlayer(player)}
-                            className="p-2 rounded-md bg-dark-700 hover:bg-primary-500/20 text-dark-400 hover:text-primary-500 transition-colors"
-                            title="Edit Player"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        </td>
+                        {!hidePoints && (
+                          <td className="p-4 text-right font-black text-xl text-primary-400">
+                            {player.soldPrice?.toLocaleString() || '0'}
+                          </td>
+                        )}
+                        {!readOnly && (
+                          <td data-html2canvas-ignore className="p-4 text-center">
+                            <button
+                              onClick={() => setEditingPlayer(player)}
+                              className="p-2 rounded-md bg-dark-700 hover:bg-primary-500/20 text-dark-400 hover:text-primary-500 transition-colors"
+                              title="Edit Player"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -196,43 +209,43 @@ export default function TeamRosterModal({ isOpen, onClose, team, onPlayerUpdate 
         {/* Footer */}
         <div className="p-4 bg-dark-900 border-t border-dark-700 flex justify-end rounded-b-xl">
           <div className="flex items-center gap-6 mr-6">
-            <div className="text-right">
-              <span className="text-xs text-dark-400 uppercase font-bold block mb-1">Total Spent</span>
-              <span className="text-lg font-black text-white">₹{team.pointsSpent.toLocaleString()}</span>
-            </div>
+            {!hidePoints && (
+              <div className="text-right">
+                <span className="text-xs text-dark-400 uppercase font-bold block mb-1">Total Spent</span>
+                <span className="text-lg font-black text-white">₹{team.pointsSpent.toLocaleString()}</span>
+              </div>
+            )}
             <button data-html2canvas-ignore onClick={onClose} className="btn-primary py-2 px-6">Close</button>
           </div>
         </div>
       </div>
 
-      <EditPlayerModal
-        isOpen={!!editingPlayer}
-        onClose={() => setEditingPlayer(null)}
-        player={editingPlayer}
-        onSave={(updatedPlayer) => {
-          db.savePlayer(updatedPlayer);
-          
-          // If we are changing the team's points by changing soldPrice, we should also update the team record 
-          // However, our `db.savePlayer` does NOT automatically update `team.pointsSpent` if only player is passed.
-          // Wait, actually `db` methods recalculate team points when players are created, but editing `soldPrice` manually bypasses the `purchasePlayer` logic.
-          // Let's manually rebuild the team's pointsSpent just in case.
-          const auctionPlayers = db.getPlayers(updatedPlayer.auctionId);
-          const idx = auctionPlayers.findIndex(p => p.id === updatedPlayer.id);
-          if (idx !== -1) auctionPlayers[idx] = updatedPlayer;
-          
-          const teamSpent = auctionPlayers
-            .filter(p => p.soldToTeamId === team.id && p.status === 'sold')
-            .reduce((sum, p) => sum + (p.soldPrice || 0), 0);
-          
-          const t = db.getTeam(team.id);
-          if (t) {
-            db.saveTeam({ ...t, pointsSpent: teamSpent });
-          }
+      {!readOnly && (
+        <EditPlayerModal
+          isOpen={!!editingPlayer}
+          onClose={() => setEditingPlayer(null)}
+          player={editingPlayer}
+          onSave={(updatedPlayer) => {
+            db.savePlayer(updatedPlayer);
+            
+            const auctionPlayers = db.getPlayers(updatedPlayer.auctionId);
+            const idx = auctionPlayers.findIndex(p => p.id === updatedPlayer.id);
+            if (idx !== -1) auctionPlayers[idx] = updatedPlayer;
+            
+            const teamSpent = auctionPlayers
+              .filter(p => p.soldToTeamId === team.id && p.status === 'sold')
+              .reduce((sum, p) => sum + (p.soldPrice || 0), 0);
+            
+            const t = db.getTeam(team.id);
+            if (t) {
+              db.saveTeam({ ...t, pointsSpent: teamSpent });
+            }
 
-          setEditingPlayer(null);
-          if (onPlayerUpdate) onPlayerUpdate();
-        }}
-      />
+            setEditingPlayer(null);
+            if (onPlayerUpdate) onPlayerUpdate();
+          }}
+        />
+      )}
 
       <ImageModal 
         isOpen={!!enlargedImage} 

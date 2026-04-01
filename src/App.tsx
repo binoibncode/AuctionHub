@@ -15,6 +15,7 @@ import PlayerDashboard from './pages/PlayerDashboard';
 import JoinAuction from './pages/JoinAuction';
 import LiveAuction from './pages/LiveAuction';
 import Profile from './pages/Profile';
+import PricingPlans from './pages/PricingPlans';
 
 function App() {
   return (
@@ -37,6 +38,7 @@ function App() {
             <Route path="/organizer/create" element={<CreateAuction />} />
             <Route path="/organizer/auction/:id" element={<AuctionDetail />} />
             <Route path="/organizer/auction/:id/bid" element={<BidScreen />} />
+            <Route path="/organizer/pricing" element={<PricingPlans />} />
             
             {/* Bidder Routes */}
             <Route path="/bidder" element={<BidderDashboard />} />

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
 import { Auction, Team, Player } from '../types';
 import { format } from 'date-fns';
+import Swal from 'sweetalert2';
 import {
   ArrowLeft, Calendar, Clock, MapPin, Hash,
   DollarSign, TrendingUp, Users, UserPlus,
@@ -13,14 +14,43 @@ import {
 import TeamRosterModal from '../components/auction/TeamRosterModal';
 import TeamGalleryModal from '../components/auction/TeamGalleryModal';
 import EditPlayerModal from '../components/auction/EditPlayerModal';
+import PaymentModal from '../components/auction/PaymentModal';
 import ImageModal from '../components/ui/ImageModal';
+import TeamPosterModal from '../components/auction/TeamPosterModal';
 import { compressImage } from '../utils/image';
+
+const SPORT_ROLE_OPTIONS: Record<string, string[]> = {
+  cricket: ['Batsman', 'Bowler', 'All Rounder', 'Wicket Keeper'],
+  football: ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'],
+  nba: ['Point Guard', 'Shooting Guard', 'Small Forward', 'Power Forward', 'Center'],
+  tennis: ['Singles', 'Doubles', 'All Court Player'],
+  volleyball: ['Setter', 'Outside Hitter', 'Opposite', 'Middle Blocker', 'Libero'],
+  badminton: ['Singles', 'Doubles', 'Mixed Doubles'],
+  kabadi: ['Raider', 'Defender', 'All Rounder'],
+};
+
+const getSportType = (sportName?: string) => {
+  const name = (sportName || '').toLowerCase();
+  if (name.includes('football')) return 'football';
+  if (name.includes('nba') || name.includes('basketball')) return 'nba';
+  if (name.includes('tennis')) return 'tennis';
+  if (name.includes('volleyball')) return 'volleyball';
+  if (name.includes('badminton')) return 'badminton';
+  if (name.includes('kabadi') || name.includes('kabaddi')) return 'kabadi';
+  return 'cricket';
+};
+
+const getRoleOptionsBySport = (sportName?: string) => {
+  return SPORT_ROLE_OPTIONS[getSportType(sportName)] || SPORT_ROLE_OPTIONS.cricket;
+};
 
 export default function AuctionDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [auction, setAuction] = useState<Auction | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const categories = db.getCategories();
 
   // Add Team form
@@ -29,10 +59,17 @@ export default function AuctionDetail() {
   const [ownerName, setOwnerName] = useState('');
   const [teamLogo, setTeamLogo] = useState('');
   const [isOwnerPlaying, setIsOwnerPlaying] = useState(false);
+  const [teamPlace, setTeamPlace] = useState('');
+  // Edit Team form
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [editTeamName, setEditTeamName] = useState('');
+  const [editOwnerName, setEditOwnerName] = useState('');
+  const [editTeamPlace, setEditTeamPlace] = useState('');
   const [rosterTeam, setRosterTeam] = useState<Team | null>(null);
   const [galleryTeam, setGalleryTeam] = useState<Team | null>(null);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
+  const [showTeamPoster, setShowTeamPoster] = useState(false);
   const allUsers = db.getUsers();
 
   // Add Player form
@@ -59,6 +96,8 @@ export default function AuctionDetail() {
   if (!auction) return <div className="p-8 text-white">Auction not found.</div>;
 
   const cat = categories.find(c => c.id === auction.categoryId);
+  const playerRoleOptions = getRoleOptionsBySport(cat?.name);
+  const playerRoleLabel = ['football', 'nba'].includes(getSportType(cat?.name)) ? 'Select Position' : 'Select Role';
   const sortedPlayers = [...players].sort((a, b) => {
     if (a.status !== b.status) {
       const statusOrder: Record<string, number> = { available: 0, retained: 1, unsold: 2, sold: 3 };
@@ -95,6 +134,7 @@ export default function AuctionDetail() {
       pointsSpent: 0,
       players: [],
       logoUrl: teamLogo || undefined,
+      place: teamPlace.trim() || undefined,
     };
 
     // If owner is playing, create a retained player entry
@@ -120,9 +160,26 @@ export default function AuctionDetail() {
     setOwnerName('');
     setTeamLogo('');
     setIsOwnerPlaying(false);
+    setTeamPlace('');
     setShowAddTeam(false);
     loadData();
   };
+
+    const openEditTeam = (team: Team) => {
+      setEditingTeam(team);
+      setEditTeamName(team.name);
+      setEditOwnerName(team.ownerName);
+      setEditTeamPlace(team.place || '');
+    };
+
+    const handleSaveEditTeam = () => {
+      if (!editingTeam || !editTeamName.trim() || !editOwnerName.trim()) return;
+      db.saveTeam({ ...editingTeam, name: editTeamName.trim(), ownerName: editOwnerName.trim(), place: editTeamPlace.trim() || undefined });
+      setEditingTeam(null);
+      loadData();
+    };
+
+    const handleCancelEditTeam = () => setEditingTeam(null);
 
   const handleAuctionLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -228,6 +285,38 @@ export default function AuctionDetail() {
     setAuction(updated);
   };
 
+  // ── Payment Gate Handler ──
+  const handleStartBidding = () => {
+    // Check if more than 4 teams (payment required)
+    if (teams.length > 4) {
+      Swal.fire({
+        title: '💳 Registration Fee Required',
+        html: '<div style="text-align:left">' +
+          '<p style="margin-bottom:16px;font-size:16px;color:#fff;">Teams more than 4 must pay a registration fee before entering the auction room.</p>' +
+          '<div style="background:rgba(59,130,246,0.1);border:2px solid rgb(59,130,246);border-radius:8px;padding:12px;">' +
+          '<p style="margin:0;font-size:14px;color:#93c5fd;font-weight:bold;">📋 Fee Details</p>' +
+          '<p style="margin:8px 0 0 0;font-size:18px;color:#fff;font-weight:bold;">Team Count: ' + teams.length + '</p>' +
+          '<p style="margin:4px 0 0 0;font-size:14px;color:#9ca3af;">Demo Payment Mode</p>' +
+          '</div></div>',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Proceed to Payment',
+        cancelButtonText: 'Cancel',
+        background: '#1a1f2e',
+        color: '#fff',
+        confirmButtonColor: '#10b981',
+        cancelButtonColor: '#6b7280',
+      }).then((result) => {
+        if (result.isConfirmed) {
+          setShowPaymentModal(true);
+        }
+      });
+    } else {
+      // No payment required, go directly to bidding
+      navigate(`/organizer/auction/${auction.id}/bid`);
+    }
+  };
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <Link to="/organizer" className="inline-flex items-center gap-2 text-primary-500 hover:text-primary-600 font-bold mb-6">
@@ -235,7 +324,17 @@ export default function AuctionDetail() {
       </Link>
 
       {/* ═══════════ HEADER ═══════════ */}
-      <div className="card p-6 mb-6">
+      <div className="card p-6 mb-6 relative">
+        {/* Top-right Teams Poster button */}
+        {teams.length > 0 && (
+          <button
+            onClick={() => setShowTeamPoster(true)}
+            title="Event Poster"
+            className="absolute top-4 right-4 bg-dark-700 hover:bg-dark-600 text-white rounded-lg font-bold text-sm flex items-center gap-1.5 py-2 px-4 transition-colors border border-dark-600 z-10"
+          >
+            <Image className="w-4 h-4" /> 
+          </button>
+        )}
         <div className="flex flex-col lg:flex-row justify-between gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
@@ -282,12 +381,12 @@ export default function AuctionDetail() {
           {/* Status & Action Controls */}
           <div className="flex flex-wrap items-center gap-2">
             {auction.status === 'live' && (
-              <Link
-                to={`/organizer/auction/${auction.id}/bid`}
+              <button
+                onClick={handleStartBidding}
                 className="btn-primary flex items-center gap-1.5 py-2 px-4 font-bold text-sm"
               >
                 <Play className="w-4 h-4" /> Start Bidding
-              </Link>
+              </button>
             )}
             {auction.status === 'upcoming' && (
               <button onClick={() => handleStatusChange('live')} className="btn-primary flex items-center gap-1.5 py-2">
@@ -398,6 +497,12 @@ export default function AuctionDetail() {
                   </div>
                 </div>
                 <label className="flex items-center gap-2 text-sm text-dark-400 cursor-pointer">
+                                      <input
+                                        className="input-field"
+                                        placeholder="Place / City"
+                                        value={teamPlace}
+                                        onChange={e => setTeamPlace(e.target.value)}
+                                      />
                   <input
                     type="checkbox"
                     checked={isOwnerPlaying}
@@ -450,13 +555,18 @@ export default function AuctionDetail() {
                         </label>
                         <div>
                           <h4 className="font-bold text-white text-lg">{team.name}</h4>
+                          {team.place && (
+                            <p className="text-xs text-dark-500 flex items-center gap-1 mt-0.5">
+                              <MapPin className="w-3 h-3" /> {team.place}
+                            </p>
+                          )}
                           <div className="flex items-center gap-3 mt-1">
                             <button
                               onClick={() => setRosterTeam(team)}
                               className="text-xs text-primary-500 hover:text-primary-400 flex items-center gap-1"
-                              title="View Roster"
+                              title="View Team"
                             >
-                              <Eye className="w-3.5 h-3.5" /> View Roster
+                              <Eye className="w-3.5 h-3.5" /> View Team
                             </button>
                              <button
                               onClick={() => setGalleryTeam(team)}
@@ -468,7 +578,12 @@ export default function AuctionDetail() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 mt-1">
+                      <div className="flex items-center gap-2 mt-1">
+                        {auction.status !== 'closed' && (
+                          <button onClick={() => openEditTeam(team)} className="text-dark-500 hover:text-blue-400 transition-colors" title="Edit Team">
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        )}
                         {auction.status !== 'closed' && (
                           <button onClick={() => handleDeleteTeam(team.id)} className="text-dark-500 hover:text-red-500 transition-colors" title="Delete Team">
                             <Trash2 className="w-4 h-4" />
@@ -476,6 +591,39 @@ export default function AuctionDetail() {
                         )}
                       </div>
                     </div>
+
+                    {/* Inline Edit Form */}
+                    {editingTeam?.id === team.id && (
+                      <div className="mb-3 p-3 bg-dark-800 rounded-xl border border-primary-500/30 space-y-2">
+                        <input
+                          className="input-field text-sm py-1.5"
+                          placeholder="Team Name"
+                          value={editTeamName}
+                          onChange={e => setEditTeamName(e.target.value)}
+                        />
+                        <input
+                          className="input-field text-sm py-1.5"
+                          placeholder="Owner Name"
+                          value={editOwnerName}
+                          onChange={e => setEditOwnerName(e.target.value)}
+                        />
+                        <input
+                          className="input-field text-sm py-1.5"
+                          placeholder="Place / City"
+                          value={editTeamPlace}
+                          onChange={e => setEditTeamPlace(e.target.value)}
+                        />
+                        <div className="flex gap-2">
+                          <button onClick={handleSaveEditTeam} className="btn-primary flex-1 py-1.5 text-sm flex items-center justify-center gap-1">
+                            <Check className="w-3.5 h-3.5" /> Save
+                          </button>
+                          <button onClick={handleCancelEditTeam} className="btn-secondary py-1.5 text-sm px-4">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="mb-2">
                       <p className="text-xs text-dark-500">
                           Owner: {team.ownerName}
@@ -575,12 +723,12 @@ export default function AuctionDetail() {
                   value={playerName}
                   onChange={e => setPlayerName(e.target.value)}
                 />
-                <input
-                  className="input-field"
-                  placeholder="Role (e.g. Batsman, Forward)"
-                  value={playerRole}
-                  onChange={e => setPlayerRole(e.target.value)}
-                />
+                <select className="input-field" value={playerRole} onChange={e => setPlayerRole(e.target.value)}>
+                  <option value="">{playerRoleLabel}</option>
+                  {playerRoleOptions.map(role => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                </select>
                 <div>
                   <label className="text-xs text-dark-500 mb-1 block">Base Price (min ₹{auction.minimumBid.toLocaleString()})</label>
                   <input
@@ -744,12 +892,31 @@ export default function AuctionDetail() {
         }}
       />
 
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        teamName={teams.length > 0 ? `${teams.length} Teams` : 'Auction'}
+        registrationFee={499}
+        onPaymentComplete={() => {
+          navigate(`/organizer/auction/${auction.id}/bid`);
+        }}
+      />
+
       <ImageModal 
         isOpen={!!enlargedImage} 
         onClose={() => setEnlargedImage(null)} 
         imageUrl={enlargedImage} 
         altText="Player Photo" 
       />
+
+      {showTeamPoster && (
+        <TeamPosterModal
+          auction={auction}
+          teams={teams}
+          categoryName={cat?.name}
+          onClose={() => setShowTeamPoster(false)}
+        />
+      )}
     </div>
   );
 }

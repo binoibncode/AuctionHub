@@ -45,3 +45,11 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #4B5563; 
 }
+
+/* SweetAlert2 dark theme overrides */
+.swal2-popup {
+  z-index: 99999 !important;
+}
+.swal2-container {
+  z-index: 99999 !important;
+}
