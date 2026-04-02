@@ -2,7 +2,7 @@
 import { Outlet, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../services/db';
-import { LogOut, Trophy, Activity, Users, CreditCard } from 'lucide-react';
+import { LogOut, Trophy, Activity, Users, CreditCard, User } from 'lucide-react';
 
 export default function AppLayout({ roleRequired }: { roleRequired?: string }) {
   const { user, logout } = useAuth();
@@ -131,6 +131,17 @@ export default function AppLayout({ roleRequired }: { roleRequired?: string }) {
               >
                 <Activity className="w-5 h-5" />
                 <span>My Auctions</span>
+              </Link>
+              <Link
+                to="/profile"
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-colors ${
+                  location.pathname === '/profile'
+                    ? 'bg-primary-500/10 text-primary-500'
+                    : 'text-dark-400 hover:bg-dark-700 hover:text-white'
+                }`}
+              >
+                <User className="w-5 h-5" />
+                <span>My Profile</span>
               </Link>
             </>
           )}

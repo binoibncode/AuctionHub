@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Edit2, Check, User as UserIcon } from 'lucide-react';
 import { Player, Auction } from '../../types';
 import { db } from '../../services/db';
@@ -8,6 +8,7 @@ interface PlayerProfileModalProps {
   onClose: () => void;
   player: Player | null;
   auction: Auction | null;
+  onSave?: () => void;
 }
 
 export default function PlayerProfileModal({
@@ -15,9 +16,15 @@ export default function PlayerProfileModal({
   onClose,
   player,
   auction,
+  onSave,
 }: PlayerProfileModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState(player ? { ...player } : null);
+
+  useEffect(() => {
+    setFormData(player ? { ...player } : null);
+    setIsEditing(false);
+  }, [player?.id, isOpen]);
 
   if (!isOpen || !player || !auction) return null;
 
@@ -31,38 +38,29 @@ export default function PlayerProfileModal({
   const photoUrl = player.photoUrl || linkedUser?.photoUrl;
   const soldTeam = player.soldToTeamId ? teams.find(t => t.id === player.soldToTeamId) : null;
 
-  // Get career stats based on sport
-  const getCareerStats = () => {
+  const getCareerFormats = () => {
     if (sport.includes('cricket')) {
-      return [
-        { format: 'ODI', debut: '-', lastMatch: '-' },
-        { format: 'T20I', debut: '-', lastMatch: '-' },
-        { format: 'Test', debut: '-', lastMatch: '-' },
-        { format: 'IPL', debut: '-', lastMatch: '-' },
-      ];
+      return ['ODI', 'T20I', 'Test', 'IPL'];
     }
     if (sport.includes('football')) {
-      return [
-        { format: 'Club', debut: '-', lastMatch: '-' },
-        { format: 'National', debut: '-', lastMatch: '-' },
-      ];
+      return ['Club', 'National'];
     }
     if (sport.includes('nba') || sport.includes('basketball')) {
-      return [
-        { format: 'NBA', debut: '-', lastMatch: '-' },
-        { format: 'Champion', debut: '-', lastMatch: '-' },
-      ];
+      return ['NBA', 'Champion'];
     }
     if (sport.includes('tennis')) {
-      return [
-        { format: 'Grand Slam', debut: '-', lastMatch: '-' },
-        { format: 'ATP/WTA', debut: '-', lastMatch: '-' },
-      ];
+      return ['Grand Slam', 'ATP/WTA'];
     }
-    return [
-      { format: 'Professional', debut: '-', lastMatch: '-' },
-      { format: 'National', debut: '-', lastMatch: '-' },
-    ];
+    if (sport.includes('badminton')) {
+      return ['Singles', 'Doubles', 'Mixed Doubles'];
+    }
+    if (sport.includes('volleyball')) {
+      return ['Club', 'League', 'National'];
+    }
+    if (sport.includes('kabadi') || sport.includes('kabaddi')) {
+      return ['Pro League', 'State', 'National'];
+    }
+    return ['Professional', 'National'];
   };
 
   const getProfileFields = () => {
@@ -74,7 +72,6 @@ export default function PlayerProfileModal({
         { label: 'Jersey Size', key: 'jerseySize' },
         { label: 'Jersey Name', key: 'jerseyName' },
         { label: 'Jersey Number', key: 'jerseyNumber' },
-        { label: 'Extra Details', key: 'extraDetails' },
       ];
     }
     if (sport.includes('football')) {
@@ -85,7 +82,6 @@ export default function PlayerProfileModal({
         { label: 'Jersey Size', key: 'jerseySize' },
         { label: 'Jersey Name', key: 'jerseyName' },
         { label: 'Jersey Number', key: 'jerseyNumber' },
-        { label: 'Extra Details', key: 'extraDetails' },
       ];
     }
     return [
@@ -95,7 +91,6 @@ export default function PlayerProfileModal({
       { label: 'Jersey Size', key: 'jerseySize' },
       { label: 'Jersey Name', key: 'jerseyName' },
       { label: 'Jersey Number', key: 'jerseyNumber' },
-      { label: 'Extra Details', key: 'extraDetails' },
     ];
   };
 
@@ -103,6 +98,7 @@ export default function PlayerProfileModal({
     if (!formData) return;
     db.savePlayer(formData);
     setIsEditing(false);
+    onSave?.();
   };
 
   const handleChange = (key: keyof Player, value: any) => {
@@ -111,7 +107,23 @@ export default function PlayerProfileModal({
     }
   };
 
-  const careerStats = getCareerStats();
+  const handleCareerChange = (format: string, key: 'debut' | 'lastMatch', value: string) => {
+    if (!formData) return;
+    const existing = formData.careerDetails || {};
+    const entry = existing[format] || {};
+    setFormData({
+      ...formData,
+      careerDetails: {
+        ...existing,
+        [format]: {
+          ...entry,
+          [key]: value,
+        },
+      },
+    });
+  };
+
+  const careerFormats = getCareerFormats();
   const profileFields = getProfileFields();
 
   return (
@@ -279,21 +291,44 @@ export default function PlayerProfileModal({
             <div>
               <h2 className="text-xl font-black text-white mb-4 pb-3 border-b border-dark-700">Career</h2>
               <div className="space-y-3">
-                {careerStats.map((stat, i) => (
-                  <div key={i} className="bg-dark-800 rounded-lg p-3 border border-dark-700">
-                    <p className="text-sm text-dark-400 uppercase font-bold mb-2">{stat.format}</p>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="text-dark-500">Debut</span>
-                        <p className="text-white font-bold">{stat.debut}</p>
-                      </div>
-                      <div>
-                        <span className="text-dark-500">Last Match</span>
-                        <p className="text-white font-bold">{stat.lastMatch}</p>
+                {careerFormats.map((format, i) => {
+                  const data = (isEditing ? formData?.careerDetails : player.careerDetails)?.[format] || {};
+                  return (
+                    <div key={`${format}-${i}`} className="bg-dark-800 rounded-lg p-3 border border-dark-700">
+                      <p className="text-sm text-dark-400 uppercase font-bold mb-2">{format}</p>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-dark-500">Debut</span>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={data.debut || ''}
+                              onChange={e => handleCareerChange(format, 'debut', e.target.value)}
+                              className="input-field mt-1 text-xs py-1.5"
+                              placeholder="Debut details"
+                            />
+                          ) : (
+                            <p className="text-white font-bold">{data.debut || '-'}</p>
+                          )}
+                        </div>
+                        <div>
+                          <span className="text-dark-500">Last Match</span>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={data.lastMatch || ''}
+                              onChange={e => handleCareerChange(format, 'lastMatch', e.target.value)}
+                              className="input-field mt-1 text-xs py-1.5"
+                              placeholder="Last match details"
+                            />
+                          ) : (
+                            <p className="text-white font-bold">{data.lastMatch || '-'}</p>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -302,12 +337,15 @@ export default function PlayerProfileModal({
           <div className="mt-8">
             <h2 className="text-xl font-black text-white mb-4 pb-3 border-b border-dark-700">Profile</h2>
             {isEditing ? (
-              <textarea
-                value={formData?.extraDetails || ''}
-                onChange={e => handleChange('extraDetails', e.target.value)}
-                className="input-field w-full h-40 text-sm"
-                placeholder="Enter player biography or additional details..."
-              />
+              <div>
+                <label className="text-xs text-dark-500 uppercase font-bold block mb-2">Profile Description</label>
+                <textarea
+                  value={formData?.extraDetails || ''}
+                  onChange={e => handleChange('extraDetails', e.target.value)}
+                  className="input-field w-full h-40 text-sm"
+                  placeholder="Enter player profile description..."
+                />
+              </div>
             ) : (
               <p className="text-dark-300 leading-relaxed">
                 {player.extraDetails || 'No profile description added yet.'}

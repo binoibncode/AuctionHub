@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { db } from '../services/db';
 import { Auction, Team, Player } from '../types';
+import Swal from 'sweetalert2';
 import {
   ArrowLeft, Zap, Users, DollarSign, TrendingUp,
   ChevronRight, Check, X, RotateCcw, Eye, ZoomIn, Info,
@@ -21,7 +22,6 @@ export default function BidScreen() {
   const [currentBid, setCurrentBid] = useState(0);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [bidLog, setBidLog] = useState<{ playerName: string; teamName: string; price: number }[]>([]);
-  const [toast, setToast] = useState<{ text: string; ok: boolean } | null>(null);
   const [rosterTeam, setRosterTeam] = useState<Team | null>(null);
   const [galleryTeam, setGalleryTeam] = useState<Team | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
@@ -62,13 +62,13 @@ export default function BidScreen() {
       generateRandomOrder(availableIds);
       setUseRandomOrder(true);
       setCurrentPlayerIdx(0); // Reset to first player in random order
-      showToast('🔀 Random order enabled', true);
+      showAlert('Random order enabled', true);
     } else {
       // Switching back to price/name order
       setShuffledIds(null);
       setUseRandomOrder(false);
       setCurrentPlayerIdx(0); // Reset to first player in sorted order
-      showToast('📋 Sorted order enabled', true);
+      showAlert('Sorted order enabled', true);
     }
   };
 
@@ -103,9 +103,15 @@ export default function BidScreen() {
 
   if (!auction) return <div className="p-8 text-white">Auction not found.</div>;
 
-  const showToast = (text: string, ok: boolean) => {
-    setToast({ text, ok });
-    setTimeout(() => setToast(null), 3000);
+  const showAlert = (text: string, ok: boolean) => {
+    Swal.fire({
+      text,
+      icon: ok ? 'success' : 'error',
+      confirmButtonText: 'OK',
+      background: '#1f2937',
+      color: '#ffffff',
+      confirmButtonColor: ok ? '#22c55e' : '#ef4444',
+    });
   };
 
   const handleBidIncrease = (multiplier: number) => {
@@ -123,7 +129,7 @@ export default function BidScreen() {
 
     // Check basic balance
     if (newBid > balance) {
-      showToast(`${team.name} doesn't have enough balance (₹${balance.toLocaleString()})`, false);
+      showAlert(`${team.name} doesn't have enough balance (₹${balance.toLocaleString()})`, false);
       return;
     }
 
@@ -135,7 +141,7 @@ export default function BidScreen() {
 
     // Check against maximum permissible bid
     if (newBid > maxPermissibleBid) {
-      showToast(`${team.name} cannot bid above ₹${maxPermissibleBid.toLocaleString()} (must reserve funds for remaining players)`, false);
+      showAlert(`${team.name} cannot bid above ₹${maxPermissibleBid.toLocaleString()} (must reserve funds for remaining players)`, false);
       return;
     }
 
@@ -155,7 +161,7 @@ export default function BidScreen() {
         teamName: team?.name || '',
         price: currentBid,
       }, ...prev]);
-      showToast(result.message, true);
+      showAlert(result.message, true);
       loadData();
       setShowAttributes(false);
       // Reset to first player after sale (since the list has changed)
@@ -165,15 +171,16 @@ export default function BidScreen() {
       if (useRandomOrder && shuffledIds) {
         const updatedShuffledIds = shuffledIds.filter(id => id !== currentPlayer.id);
         setShuffledIds(updatedShuffledIds);
-      }    } else {
-      showToast(result.message, false);
+      }
+    } else {
+      showAlert(result.message, false);
     }
   };
 
   const handleUnsold = () => {
     if (!currentPlayer) return;
     db.markPlayerUnsold(currentPlayer.id);
-    showToast(`${currentPlayer.name} marked as unsold`, false);
+    showAlert(`${currentPlayer.name} marked as unsold`, true);
     loadData();
     setShowAttributes(false);
     // Reset to first player after marking unsold
@@ -248,15 +255,6 @@ export default function BidScreen() {
           </button>
         </div>
       </div>
-
-      {/* Toast */}
-      {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-lg font-bold text-sm shadow-xl animate-pulse ${
-          toast.ok ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-        }`}>
-          {toast.text}
-        </div>
-      )}
 
       <div className="grid grid-cols-12 gap-4">
         {/* ═══════════ LEFT — CURRENT PLAYER ═══════════ */}

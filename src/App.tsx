@@ -16,6 +16,10 @@ import JoinAuction from './pages/JoinAuction';
 import LiveAuction from './pages/LiveAuction';
 import Profile from './pages/Profile';
 import PricingPlans from './pages/PricingPlans';
+import Features from './pages/Features';
+import AboutUs from './pages/AboutUs';
+import ContactUs from './pages/ContactUs';
+import PublicAuctionView from './pages/PublicAuctionView';
 
 function App() {
   return (
@@ -27,6 +31,11 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/join/:code" element={<JoinAuction />} />
+          <Route path="/features" element={<Features />} />
+          <Route path="/about" element={<AboutUs />} />
+          <Route path="/contact" element={<ContactUs />} />
+          <Route path="/pricing" element={<PricingPlans />} />
+          <Route path="/live/:id" element={<PublicAuctionView />} />
           
           {/* Main App Routes (authenticated) */}
           <Route element={<AppLayout />}>

@@ -429,7 +429,7 @@ export default function EditPlayerModal({ isOpen, onClose, player, onSave }: Edi
             </div>
             
             <div className="border-t border-dark-700 pt-5">
-              <label className="block text-sm font-medium text-dark-400 mb-1">Extra Details / Medical</label>
+              <label className="block text-sm font-medium text-dark-400 mb-1">Profile</label>
               <textarea name="extraDetails" className="input-field min-h-[80px] resize-y" value={formData.extraDetails || ''} onChange={handleInputChange} />
             </div>
           </form>

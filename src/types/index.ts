@@ -101,6 +101,7 @@ export interface Player {
   jerseyNumber?: string;
   trouserSize?: string;
   extraDetails?: string;
+  careerDetails?: Record<string, { debut?: string; lastMatch?: string }>;
 
   photoUrl?: string;         // Auction-specific player photo (overrides user photo)
   secondReferenceUrl?: string; // Second reference document/image

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, Crown, CheckCircle } from 'lucide-react';
+import PublicNavbar from '../components/layout/PublicNavbar';
 import Swal from 'sweetalert2';
 import { db } from '../services/db';
 import { PricingPlan } from '../types';
@@ -69,11 +70,18 @@ export default function PricingPlans() {
   const topRow = plans.slice(0, 4);
   const bottomRow = plans.slice(4);
 
+  const location = useLocation();
+  const isPublic = location.pathname === '/pricing';
+
   return (
+    <div className={isPublic ? 'min-h-screen bg-dark-900 text-white font-sans' : ''}>
+      {isPublic && <PublicNavbar />}
     <div className="p-6 max-w-6xl mx-auto">
-      <Link to="/organizer" className="inline-flex items-center gap-2 text-primary-500 hover:text-primary-400 font-bold mb-6">
-        <ArrowLeft className="w-4 h-4" /> Back to Auctions
-      </Link>
+      {!isPublic && (
+        <Link to="/organizer" className="inline-flex items-center gap-2 text-primary-500 hover:text-primary-400 font-bold mb-6">
+          <ArrowLeft className="w-4 h-4" /> Back to Auctions
+        </Link>
+      )}
 
       <div className="text-center mb-10">
         <div className="inline-flex items-center gap-2 bg-primary-500/10 text-primary-500 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-4">
@@ -86,7 +94,7 @@ export default function PricingPlans() {
       {/* Top Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-5">
         {topRow.map((plan) => (
-          <PlanCard key={plan.id} plan={plan} processing={processing} onSelect={handleSelect} />
+          <PlanCard key={plan.id} plan={plan} processing={processing} onSelect={handleSelect} isPublic={isPublic} />
         ))}
       </div>
 
@@ -94,9 +102,18 @@ export default function PricingPlans() {
       {bottomRow.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-[56rem] mx-auto">
           {bottomRow.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} processing={processing} onSelect={handleSelect} />
+            <PlanCard key={plan.id} plan={plan} processing={processing} onSelect={handleSelect} isPublic={isPublic} />
           ))}
         </div>
+      )}
+    </div>
+
+      {isPublic && (
+        <footer className="border-t border-dark-700/50 py-8 mt-8">
+          <div className="max-w-7xl mx-auto px-6 text-center text-dark-500 text-sm">
+            &copy; {new Date().getFullYear()} AuctionHub. All rights reserved.
+          </div>
+        </footer>
       )}
     </div>
   );
@@ -106,10 +123,12 @@ function PlanCard({
   plan,
   processing,
   onSelect,
+  isPublic,
 }: {
   plan: PricingPlan;
   processing: string | null;
   onSelect: (plan: PricingPlan) => void;
+  isPublic: boolean;
 }) {
   const isProcessing = processing === plan.id;
   const isRecommended = plan.recommended;
@@ -148,6 +167,7 @@ function PlanCard({
         </div>
 
         {/* CTA Button */}
+        {!isPublic && (
         <button
           className={`w-full rounded-lg py-2.5 text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer ${
             isRecommended
@@ -168,6 +188,7 @@ function PlanCard({
             'Select Plan'
           )}
         </button>
+        )}
       </div>
     </div>
   );

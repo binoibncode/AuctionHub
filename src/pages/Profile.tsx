@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { db } from '../services/db';
+import { AuctionRegistration } from '../types';
 import {
   User, Mail, Phone, MapPin, Shield, Camera,
   Edit3, Lock, Check, X, Eye, EyeOff,
@@ -25,7 +27,47 @@ export default function Profile() {
   // Messages
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
 
+  // Player profile & career
+  const [registrations, setRegistrations] = useState<AuctionRegistration[]>([]);
+  const [playerDrafts, setPlayerDrafts] = useState<Record<string, { bio: string; career: Record<string, { debut?: string; lastMatch?: string }> }>>({});
+
+  useEffect(() => {
+    if (user?.role === 'Player' && mode === 'edit') {
+      const regs = db.getRegistrationsByUser(user.id);
+      setRegistrations(regs);
+      const drafts: Record<string, { bio: string; career: Record<string, { debut?: string; lastMatch?: string }> }> = {};
+      regs.forEach(reg => {
+        const p = db.getPlayer(reg.playerId);
+        if (p) drafts[reg.playerId] = { bio: p.extraDetails || '', career: p.careerDetails ? { ...p.careerDetails } : {} };
+      });
+      setPlayerDrafts(drafts);
+    }
+  }, [mode, user?.id]);
+
   if (!user) return null;
+
+  const getCareerFormats = (sport: string): string[] => {
+    const s = sport.toLowerCase();
+    if (s.includes('cricket')) return ['ODI', 'T20I', 'Test', 'IPL'];
+    if (s.includes('football')) return ['Club', 'National'];
+    if (s.includes('nba') || s.includes('basketball')) return ['NBA', 'Champion'];
+    if (s.includes('tennis')) return ['Grand Slam', 'ATP/WTA'];
+    if (s.includes('badminton')) return ['Singles', 'Doubles', 'Mixed Doubles'];
+    if (s.includes('volleyball')) return ['Club', 'League', 'National'];
+    if (s.includes('kabadi') || s.includes('kabaddi')) return ['Pro League', 'State', 'National'];
+    return ['Professional', 'National'];
+  };
+
+  const updateDraft = (playerId: string, value: string) => {
+    setPlayerDrafts(prev => ({ ...prev, [playerId]: { ...(prev[playerId] || { bio: '', career: {} }), bio: value } }));
+  };
+
+  const updateCareer = (playerId: string, fmt: string, key: 'debut' | 'lastMatch', value: string) => {
+    setPlayerDrafts(prev => {
+      const existing = prev[playerId] || { bio: '', career: {} };
+      return { ...prev, [playerId]: { ...existing, career: { ...existing.career, [fmt]: { ...(existing.career[fmt] || {}), [key]: value } } } };
+    });
+  };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -60,6 +102,12 @@ export default function Profile() {
       city: city.trim() || undefined,
       photoUrl: photoUrl || undefined,
     });
+    if (user.role === 'Player') {
+      Object.entries(playerDrafts).forEach(([playerId, draft]) => {
+        const p = db.getPlayer(playerId);
+        if (p) db.savePlayer({ ...p, extraDetails: draft.bio, careerDetails: draft.career });
+      });
+    }
     setMessage({ text: 'Profile updated successfully!', ok: true });
     setMode('view');
     setTimeout(() => setMessage(null), 3000);
@@ -247,6 +295,76 @@ export default function Profile() {
                         onChange={e => updateProfile({...user, purse: Number(e.target.value)})} 
                       />
                     </div>
+                  </div>
+                )}
+
+                {/* ── Player Profile & Career ── */}
+                {user.role === 'Player' && registrations.length > 0 && (
+                  <div className="pt-4 border-t border-dark-700 space-y-4">
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      <User className="w-4 h-4 text-primary-500" /> Player Profile &amp; Career
+                    </h4>
+                    {registrations.map(reg => {
+                      const auction = db.getAuction(reg.auctionId);
+                      if (!auction) return null;
+                      const cats = db.getCategories();
+                      const cat = cats.find(c => c.id === auction.categoryId);
+                      const sportName = cat?.name || '';
+                      const formats = getCareerFormats(sportName);
+                      const draft = playerDrafts[reg.playerId] || { bio: '', career: {} };
+                      return (
+                        <div key={reg.id} className="bg-dark-800 rounded-xl p-4 border border-dark-700">
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-sm font-bold text-white">{auction.name}</p>
+                            <span className="text-xs text-dark-500">{cat?.icon} {sportName}</span>
+                          </div>
+                          <div className="mb-4">
+                            <label className="text-xs text-dark-400 uppercase font-bold block mb-1">Profile Description</label>
+                            <textarea
+                              rows={4}
+                              value={draft.bio}
+                              onChange={e => updateDraft(reg.playerId, e.target.value)}
+                              className="input-field w-full text-sm resize-y"
+                              placeholder={`e.g. ${user.name} is a talented ${sportName.toLowerCase()} player who has been making waves...`}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-dark-400 uppercase font-bold block mb-2">
+                              Career Details <span className="text-dark-600 font-normal normal-case">({sportName})</span>
+                            </label>
+                            <div className="space-y-2">
+                              {formats.map(fmt => (
+                                <div key={fmt} className="bg-dark-700 rounded-lg p-3 border border-dark-600">
+                                  <p className="text-xs font-bold text-white uppercase mb-2">{fmt}</p>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <label className="text-xs text-dark-500 block mb-1">Debut</label>
+                                      <input
+                                        type="text"
+                                        value={draft.career[fmt]?.debut || ''}
+                                        onChange={e => updateCareer(reg.playerId, fmt, 'debut', e.target.value)}
+                                        className="input-field text-xs py-1.5"
+                                        placeholder="e.g. Jan 2020"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="text-xs text-dark-500 block mb-1">Last Match</label>
+                                      <input
+                                        type="text"
+                                        value={draft.career[fmt]?.lastMatch || ''}
+                                        onChange={e => updateCareer(reg.playerId, fmt, 'lastMatch', e.target.value)}
+                                        className="input-field text-xs py-1.5"
+                                        placeholder="e.g. Mar 2024"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
