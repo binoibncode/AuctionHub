@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { db } from '../services/db';
 import { Auction, Player } from '../types';
 import PublicNavbar from '../components/layout/PublicNavbar';
-import ChatWidget from '../components/ui/ChatWidget';
 import {
   Flame, Calendar, Users, Gavel, Trophy, ArrowRight,
   MapPin, Clock, UserPlus, Monitor, CheckCircle, Star,
@@ -344,7 +343,6 @@ export default function Home() {
         </div>
       </footer>
 
-      <ChatWidget />
     </div>
   );
 }

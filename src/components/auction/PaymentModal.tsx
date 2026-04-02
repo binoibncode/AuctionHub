@@ -47,57 +47,57 @@ export default function PaymentModal({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-dark-900/95 backdrop-blur-md">
-      <div className="bg-dark-800 rounded-2xl max-w-md w-full shadow-2xl border border-dark-700 overflow-hidden">
+      <div className="bg-dark-800 rounded-2xl max-w-sm w-full shadow-2xl border border-dark-700 overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="relative p-6 bg-gradient-to-r from-primary-600 to-primary-500">
+        <div className="relative px-5 py-4 bg-gradient-to-r from-primary-600 to-primary-500 flex-shrink-0">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
+            className="absolute top-3 right-3 p-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
           
           <div className="text-center">
-            <h2 className="text-2xl font-black text-white mb-1">Registration Fee</h2>
-            <p className="text-white/80 text-sm">Team: {teamName}</p>
+            <h2 className="text-xl font-black text-white">Registration Fee</h2>
+            <p className="text-white/80 text-xs">Team: {teamName}</p>
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-4 overflow-y-auto flex-1">
           {!paymentSuccess ? (
             <>
               {/* Fee Amount */}
-              <div className="bg-dark-700/50 rounded-xl p-4 mb-6 text-center border border-dark-600">
-                <p className="text-dark-400 text-sm uppercase font-bold mb-1">Amount to Pay</p>
-                <p className="text-4xl font-black text-primary-500">₹{registrationFee}</p>
+              <div className="bg-dark-700/50 rounded-xl p-3 mb-4 text-center border border-dark-600">
+                <p className="text-dark-400 text-[11px] uppercase font-bold mb-0.5">Amount to Pay</p>
+                <p className="text-3xl font-black text-primary-500">₹{registrationFee}</p>
               </div>
 
               {/* Payment Methods */}
-              <div className="mb-6">
-                <p className="text-dark-400 text-xs uppercase font-bold tracking-wider mb-3">Select Payment Method</p>
-                <div className="space-y-2">
+              <div className="mb-4">
+                <p className="text-dark-400 text-[11px] uppercase font-bold tracking-wider mb-2">Select Payment Method</p>
+                <div className="space-y-1.5">
                   {paymentMethods.map(method => (
                     <button
                       key={method.id}
                       onClick={() => setPaymentMethod(method.id)}
-                      className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                      className={`w-full px-3 py-2.5 rounded-lg border-2 transition-all text-left ${
                         paymentMethod === method.id
-                          ? 'bg-primary-500/10 border-primary-500 shadow-lg'
+                          ? 'bg-primary-500/10 border-primary-500'
                           : 'bg-dark-700 border-dark-600 hover:border-dark-500'
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{method.icon}</span>
-                        <div className="flex-1">
-                          <p className={`font-bold ${paymentMethod === method.id ? 'text-primary-500' : 'text-white'}`}>
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-lg">{method.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-bold text-sm ${paymentMethod === method.id ? 'text-primary-500' : 'text-white'}`}>
                             {method.label}
                           </p>
-                          <p className="text-xs text-dark-400">{method.description}</p>
+                          <p className="text-[11px] text-dark-400">{method.description}</p>
                         </div>
                         {paymentMethod === method.id && (
-                          <div className="w-5 h-5 rounded-full bg-primary-500 flex items-center justify-center">
-                            <CheckCircle className="w-4 h-4 text-white" />
+                          <div className="w-5 h-5 rounded-full bg-primary-500 flex items-center justify-center flex-shrink-0">
+                            <CheckCircle className="w-3.5 h-3.5 text-white" />
                           </div>
                         )}
                       </div>
@@ -107,8 +107,8 @@ export default function PaymentModal({
               </div>
 
               {/* Note */}
-              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 mb-6">
-                <p className="text-xs text-yellow-600 font-medium">
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2.5 mb-4">
+                <p className="text-[11px] text-yellow-600 font-medium">
                   ⚠️ <span className="font-bold">Demo Mode:</span> This is a demonstration. Payment will not be processed.
                 </p>
               </div>
@@ -117,7 +117,7 @@ export default function PaymentModal({
               <button
                 onClick={handlePayment}
                 disabled={isProcessing}
-                className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-bold text-sm rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isProcessing ? (
                   <>
@@ -131,14 +131,14 @@ export default function PaymentModal({
             </>
           ) : (
             /* Success State */
-            <div className="text-center py-12">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center">
-                <CheckCircle className="w-8 h-8 text-green-500" />
+            <div className="text-center py-8">
+              <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-green-500/20 flex items-center justify-center">
+                <CheckCircle className="w-7 h-7 text-green-500" />
               </div>
-              <h3 className="text-xl font-black text-white mb-2">Payment Successful!</h3>
-              <p className="text-dark-400 text-sm mb-2">Registration fee paid</p>
-              <p className="text-primary-500 font-bold">₹{registrationFee} charged</p>
-              <p className="text-dark-500 text-xs mt-3">Proceeding to auction...</p>
+              <h3 className="text-lg font-black text-white mb-1">Payment Successful!</h3>
+              <p className="text-dark-400 text-sm mb-1">Registration fee paid</p>
+              <p className="text-primary-500 font-bold text-sm">₹{registrationFee} charged</p>
+              <p className="text-dark-500 text-xs mt-2">Proceeding to auction...</p>
             </div>
           )}
         </div>

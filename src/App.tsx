@@ -21,6 +21,7 @@ import AboutUs from './pages/AboutUs';
 import ContactUs from './pages/ContactUs';
 import PublicAuctionView from './pages/PublicAuctionView';
 import HowItWorks from './pages/HowItWorks';
+import ChatWidget from './components/ui/ChatWidget';
 
 function App() {
   return (
@@ -62,6 +63,7 @@ function App() {
             <Route path="/auction/:id" element={<LiveAuction />} />
           </Route>
         </Routes>
+        <ChatWidget />
       </AuthProvider>
     </BrowserRouter>
   );
