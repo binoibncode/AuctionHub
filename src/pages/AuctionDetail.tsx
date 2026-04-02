@@ -14,6 +14,8 @@ import {
 import TeamRosterModal from '../components/auction/TeamRosterModal';
 import TeamGalleryModal from '../components/auction/TeamGalleryModal';
 import EditPlayerModal from '../components/auction/EditPlayerModal';
+import PlayerCardsModal from '../components/auction/PlayerCardsModal';
+import PlayerProfileModal from '../components/auction/PlayerProfileModal';
 import PaymentModal from '../components/auction/PaymentModal';
 import ImageModal from '../components/ui/ImageModal';
 import TeamPosterModal from '../components/auction/TeamPosterModal';
@@ -67,7 +69,9 @@ export default function AuctionDetail() {
   const [editTeamPlace, setEditTeamPlace] = useState('');
   const [rosterTeam, setRosterTeam] = useState<Team | null>(null);
   const [galleryTeam, setGalleryTeam] = useState<Team | null>(null);
+  const [showPlayerCards, setShowPlayerCards] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [showTeamPoster, setShowTeamPoster] = useState(false);
   const allUsers = db.getUsers();
@@ -706,11 +710,21 @@ export default function AuctionDetail() {
               <UserPlus className="w-5 h-5 text-orange-400" /> Players
               <span className="text-sm text-dark-500">({players.length})</span>
             </h2>
-            {auction.status !== 'closed' && (
-              <button onClick={() => { setShowAddPlayer(!showAddPlayer); setPlayerBasePrice(auction.minimumBid); }} className="text-sm text-primary-500 font-bold flex items-center gap-1 hover:text-primary-600">
-                <Plus className="w-4 h-4" /> Add Player
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {players.length > 0 && (
+                <button
+                  onClick={() => setShowPlayerCards(true)}
+                  className="text-sm text-accent-500 font-bold flex items-center gap-1 hover:text-accent-400"
+                >
+                  <Eye className="w-4 h-4" /> Player Cards
+                </button>
+              )}
+              {auction.status !== 'closed' && (
+                <button onClick={() => { setShowAddPlayer(!showAddPlayer); setPlayerBasePrice(auction.minimumBid); }} className="text-sm text-primary-500 font-bold flex items-center gap-1 hover:text-primary-600">
+                  <Plus className="w-4 h-4" /> Add Player
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Add Player Form */}
@@ -836,6 +850,9 @@ export default function AuctionDetail() {
                         {player.status === 'sold' && (
                           <span className="text-lg font-black text-primary-500">₹{player.soldPrice?.toLocaleString()}</span>
                         )}
+                        <button onClick={() => setProfilePlayer(player)} className="text-dark-400 hover:text-accent-400 transition-colors p-1" title="View Profile">
+                          <Eye className="w-4 h-4" />
+                        </button>
                         <button onClick={() => setEditingPlayer(player)} className="text-dark-400 hover:text-primary-500 transition-colors p-1" title="Edit Player">
                           <Edit2 className="w-4 h-4" />
                         </button>
@@ -865,6 +882,20 @@ export default function AuctionDetail() {
         isOpen={!!galleryTeam}
         onClose={() => setGalleryTeam(null)}
         team={galleryTeam ? teams.find(t => t.id === galleryTeam.id) || galleryTeam : null}
+        auction={auction}
+      />
+
+      <PlayerCardsModal
+        isOpen={showPlayerCards}
+        onClose={() => setShowPlayerCards(false)}
+        auction={auction}
+        players={players}
+      />
+
+      <PlayerProfileModal
+        isOpen={!!profilePlayer}
+        onClose={() => setProfilePlayer(null)}
+        player={profilePlayer}
         auction={auction}
       />
 

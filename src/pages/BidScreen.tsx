@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import TeamRosterModal from '../components/auction/TeamRosterModal';
 import TeamGalleryModal from '../components/auction/TeamGalleryModal';
+import PlayerProfileModal from '../components/auction/PlayerProfileModal';
 import ImageModal from '../components/ui/ImageModal';
 
 export default function BidScreen() {
@@ -25,6 +26,7 @@ export default function BidScreen() {
   const [galleryTeam, setGalleryTeam] = useState<Team | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [showAttributes, setShowAttributes] = useState(false);
+  const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
   const [useRandomOrder, setUseRandomOrder] = useState(false);
   const [shuffledIds, setShuffledIds] = useState<string[] | null>(null);
   const categories = db.getCategories();
@@ -289,11 +291,18 @@ export default function BidScreen() {
                   </div>
                   <h2 className="text-3xl font-black text-white">{currentPlayer.name}</h2>
                   <p className="text-dark-400 text-sm mt-1 mb-3">{currentPlayer.role} {currentPlayer.playerTag ? `• ${currentPlayer.playerTag}` : ''}</p>
-                  <div className="flex items-center justify-center gap-3">
+                  <div className="flex items-center justify-center gap-3 flex-wrap">
                     <div className="flex items-center gap-1.5 bg-dark-800 border border-dark-700 px-4 py-1.5 rounded-full">
                       <DollarSign className="w-4 h-4 text-dark-400" />
                       <span className="text-dark-300 text-sm">Base: <span className="text-white font-bold">₹{currentPlayer.basePrice.toLocaleString()}</span></span>
                     </div>
+                    <button
+                      onClick={() => setProfilePlayer(currentPlayer)}
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold transition-all border bg-accent-500/10 hover:bg-accent-500/20 text-accent-500 border-accent-500/20"
+                      title="View Full Profile"
+                    >
+                      <Eye className="w-4 h-4" /> Profile
+                    </button>
                     <button 
                       onClick={() => setShowAttributes(!showAttributes)}
                       className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold transition-all border ${showAttributes ? 'bg-primary-500 text-white border-primary-500' : 'bg-primary-500/10 hover:bg-primary-500/20 text-primary-500 border-primary-500/20'}`}
@@ -606,6 +615,13 @@ export default function BidScreen() {
         isOpen={!!galleryTeam}
         onClose={() => setGalleryTeam(null)}
         team={galleryTeam ? teams.find(t => t.id === galleryTeam.id) || galleryTeam : null}
+        auction={auction}
+      />
+
+      <PlayerProfileModal
+        isOpen={!!profilePlayer}
+        onClose={() => setProfilePlayer(null)}
+        player={profilePlayer}
         auction={auction}
       />
 
