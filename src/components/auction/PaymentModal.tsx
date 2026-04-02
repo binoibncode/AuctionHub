@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, CheckCircle } from 'lucide-react';
+import { X, CheckCircle, Smartphone, CreditCard, Landmark, QrCode, Banknote } from 'lucide-react';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -38,11 +38,11 @@ export default function PaymentModal({
   if (!isOpen) return null;
 
   const paymentMethods = [
-    { id: 'upi', label: 'UPI', icon: '📱', description: 'Google Pay, PhonePe, Paytm' },
-    { id: 'card', label: 'Credit/Debit Card', icon: '💳', description: 'Visa, Mastercard, RuPay' },
-    { id: 'netbanking', label: 'Net Banking', icon: '🏦', description: 'All major banks' },
-    { id: 'scan', label: 'Scan & Pay', icon: '📸', description: 'Scan QR code' },
-    { id: 'cod', label: 'Cash on Site', icon: '💵', description: 'Pay at venue' }
+    { id: 'upi', label: 'UPI', icon: Smartphone, color: 'text-primary-500', bg: 'bg-primary-500/15', description: 'Google Pay, PhonePe, Paytm' },
+    { id: 'card', label: 'Credit/Debit Card', icon: CreditCard, color: 'text-blue-400', bg: 'bg-blue-400/15', description: 'Visa, Mastercard, RuPay' },
+    { id: 'netbanking', label: 'Net Banking', icon: Landmark, color: 'text-amber-400', bg: 'bg-amber-400/15', description: 'All major banks' },
+    { id: 'scan', label: 'Scan & Pay', icon: QrCode, color: 'text-purple-400', bg: 'bg-purple-400/15', description: 'Scan QR code' },
+    { id: 'cod', label: 'Cash on Site', icon: Banknote, color: 'text-emerald-400', bg: 'bg-emerald-400/15', description: 'Pay at venue' }
   ];
 
   return (
@@ -88,7 +88,9 @@ export default function PaymentModal({
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
-                        <span className="text-lg">{method.icon}</span>
+                        <div className={`w-9 h-9 rounded-lg ${method.bg} flex items-center justify-center flex-shrink-0`}>
+                          <method.icon className={`w-4.5 h-4.5 ${method.color}`} />
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className={`font-bold text-sm ${paymentMethod === method.id ? 'text-primary-500' : 'text-white'}`}>
                             {method.label}
