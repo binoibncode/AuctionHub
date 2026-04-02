@@ -62,6 +62,13 @@ export default function PublicNavbar() {
             }`}
           >
             Register
+            <svg className="w-5 h-4 ml-1.5 inline-block rounded-sm overflow-hidden" viewBox="0 0 900 600">
+              <rect width="900" height="200" fill="#FF9933" />
+              <rect y="200" width="900" height="200" fill="#FFFFFF" />
+              <rect y="400" width="900" height="200" fill="#138808" />
+              <circle cx="450" cy="300" r="60" fill="none" stroke="#000080" strokeWidth="4" />
+              <circle cx="450" cy="300" r="12" fill="#000080" />
+            </svg>
           </Link>
         </div>
 
@@ -90,7 +97,7 @@ export default function PublicNavbar() {
           ))}
           <div className="flex gap-3 pt-3 border-t border-dark-700/50">
             <Link to="/login" onClick={() => setMenuOpen(false)} className="flex-1 text-center px-4 py-2.5 rounded-lg font-bold text-sm text-dark-400 hover:text-white bg-dark-800">Login</Link>
-            <Link to="/register" onClick={() => setMenuOpen(false)} className="flex-1 text-center px-4 py-2.5 rounded-lg font-bold text-sm bg-primary-500 text-white hover:bg-primary-600">Register</Link>
+            <Link to="/register" onClick={() => setMenuOpen(false)} className="flex-1 text-center px-4 py-2.5 rounded-lg font-bold text-sm bg-primary-500 text-white hover:bg-primary-600">Register <svg className="w-5 h-4 ml-1.5 inline-block rounded-sm overflow-hidden" viewBox="0 0 900 600"><rect width="900" height="200" fill="#FF9933" /><rect y="200" width="900" height="200" fill="#FFFFFF" /><rect y="400" width="900" height="200" fill="#138808" /><circle cx="450" cy="300" r="60" fill="none" stroke="#000080" strokeWidth="4" /><circle cx="450" cy="300" r="12" fill="#000080" /></svg></Link>
           </div>
         </div>
       )}
