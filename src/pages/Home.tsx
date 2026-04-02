@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { db } from '../services/db';
 import { Auction, Player } from '../types';
 import PublicNavbar from '../components/layout/PublicNavbar';
+import ChatWidget from '../components/ui/ChatWidget';
 import {
   Flame, Calendar, Users, Gavel, Trophy, ArrowRight,
   MapPin, Clock, UserPlus, Monitor, CheckCircle, Star,
@@ -49,14 +50,14 @@ export default function Home() {
           </div>
 
           <h1 className="text-5xl lg:text-7xl font-black leading-tight mb-6">
-            The Complete Platform for<br />
+            Auction Like the Pros —<br />
             <span className="bg-gradient-to-r from-primary-500 to-emerald-400 bg-clip-text text-transparent">
-              Player Auctions
+              From Anywhere
             </span>
           </h1>
 
           <p className="text-dark-400 text-lg lg:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
-            Create, manage, and conduct exciting player auctions for cricket, football, kabaddi, and more. 
+            The complete platform to create, manage, and conduct exciting player auctions for cricket, football, kabaddi, and more. 
             Real-time bidding, team management, and live streaming — all in one place.
           </p>
 
@@ -190,10 +191,10 @@ export default function Home() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { icon: UserPlus, step: '01', title: 'Create an Account', desc: 'Sign up as an Organizer, Team Owner, or Player to get started.' },
-            { icon: Gavel, step: '02', title: 'Set Up Your Auction', desc: 'Create teams, add players, set budgets, and configure auction rules.' },
-            { icon: Monitor, step: '03', title: 'Go Live', desc: 'Start the auction — bid on players in real-time with live updates.' },
-            { icon: CheckCircle, step: '04', title: 'Build Your Squad', desc: 'View final squads, manage teams, and track auction results.' },
+            { icon: UserPlus, step: '01', title: 'Create Tournament', desc: 'Create a tournament and define auction rules, player categories, and budgets.' },
+            { icon: Gavel, step: '02', title: 'Register Players', desc: 'Players register online or organizers add them to the auction list.' },
+            { icon: Monitor, step: '03', title: 'Create Teams', desc: 'Set up teams with budgets and owners to participate in the auction.' },
+            { icon: CheckCircle, step: '04', title: 'Go Live!', desc: 'Conduct the live auction with real-time bidding and instant results.' },
           ].map((item, i) => (
             <div key={i} className="card p-6 text-center hover:border-primary-500/30 transition-all relative group">
               <div className="text-5xl font-black text-dark-700 absolute top-3 right-4 group-hover:text-dark-600 transition-colors">{item.step}</div>
@@ -204,6 +205,12 @@ export default function Home() {
               <p className="text-dark-400 text-sm leading-relaxed">{item.desc}</p>
             </div>
           ))}
+        </div>
+
+        <div className="text-center mt-8">
+          <Link to="/how-it-works" className="text-primary-500 hover:text-primary-400 font-bold text-sm inline-flex items-center gap-1">
+            Learn More About How It Works <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </section>
 
@@ -336,6 +343,8 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      <ChatWidget />
     </div>
   );
 }

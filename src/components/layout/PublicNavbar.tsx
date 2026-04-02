@@ -4,8 +4,9 @@ import { Trophy, Menu, X } from 'lucide-react';
 
 const NAV_LINKS = [
   { to: '/', label: 'Home' },
-  { to: '/features', label: 'Features' },
   { to: '/about', label: 'About Us' },
+  { to: '/features', label: 'Features' },
+  { to: '/how-it-works', label: 'How It Works' },
   { to: '/pricing', label: 'Pricing' },
   { to: '/contact', label: 'Contact Us' },
 ];

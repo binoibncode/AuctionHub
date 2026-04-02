@@ -29,6 +29,7 @@ export default function BidScreen() {
   const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
   const [useRandomOrder, setUseRandomOrder] = useState(false);
   const [shuffledIds, setShuffledIds] = useState<string[] | null>(null);
+  const [soldAnimation, setSoldAnimation] = useState<{ playerName: string; teamName: string; price: number } | null>(null);
   const categories = db.getCategories();
   const allUsers = db.getUsers();
 
@@ -153,21 +154,23 @@ export default function BidScreen() {
 
   const handleSold = () => {
     if (!currentPlayer || !selectedTeamId) return;
+    const soldPlayerName = currentPlayer.name;
+    const soldTeam = teams.find(t => t.id === selectedTeamId);
+    const soldPrice = currentBid;
     const result = db.purchasePlayer(currentPlayer.id, selectedTeamId, currentBid);
     if (result.success) {
-      const team = teams.find(t => t.id === selectedTeamId);
       setBidLog(prev => [{
-        playerName: currentPlayer.name,
-        teamName: team?.name || '',
-        price: currentBid,
+        playerName: soldPlayerName,
+        teamName: soldTeam?.name || '',
+        price: soldPrice,
       }, ...prev]);
-      showAlert(result.message, true);
+      // Show sold animation instead of alert
+      setSoldAnimation({ playerName: soldPlayerName, teamName: soldTeam?.name || '', price: soldPrice });
+      setTimeout(() => setSoldAnimation(null), 3000);
       loadData();
       setShowAttributes(false);
-      // Reset to first player after sale (since the list has changed)
       setCurrentPlayerIdx(0);
       setSelectedTeamId(null);
-      // If in random mode, update shuffledIds to remove sold player
       if (useRandomOrder && shuffledIds) {
         const updatedShuffledIds = shuffledIds.filter(id => id !== currentPlayer.id);
         setShuffledIds(updatedShuffledIds);
@@ -629,6 +632,89 @@ export default function BidScreen() {
         imageUrl={enlargedImage} 
         altText={currentPlayer?.name || "Player Photo"} 
       />
+
+      {/* ═══════════ SOLD ANIMATION OVERLAY ═══════════ */}
+      {soldAnimation && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none" onClick={() => setSoldAnimation(null)}>
+          <div className="absolute inset-0 bg-dark-900/80 backdrop-blur-sm sold-overlay-fade" />
+          {/* Golden Particles */}
+          {Array.from({ length: 40 }).map((_, i) => {
+            const angle = Math.random() * 2 * Math.PI;
+            const distance = 150 + Math.random() * 300;
+            const dx = Math.cos(angle) * distance;
+            const dy = Math.sin(angle) * distance;
+            return (
+              <div
+                key={i}
+                className="absolute rounded-full"
+                style={{
+                  width: `${4 + Math.random() * 8}px`,
+                  height: `${4 + Math.random() * 8}px`,
+                  background: `hsl(${40 + Math.random() * 20}, ${90 + Math.random() * 10}%, ${50 + Math.random() * 20}%)`,
+                  left: '50%',
+                  top: '50%',
+                  boxShadow: `0 0 ${6 + Math.random() * 10}px hsl(45, 100%, 60%)`,
+                  animation: `sold-particle-move ${1.5 + Math.random() * 1.5}s ease-out forwards`,
+                  animationDelay: `${Math.random() * 0.5}s`,
+                  opacity: 0,
+                  ['--dx' as string]: `${dx}px`,
+                  ['--dy' as string]: `${dy}px`,
+                }}
+              />
+            );
+          })}
+          {/* Sold Text & Details */}
+          <div className="relative text-center sold-content-pop">
+            <div className="text-8xl lg:text-9xl font-black tracking-wider sold-text-glow">
+              SOLD!
+            </div>
+            <div className="mt-4 text-2xl lg:text-3xl font-black text-white">
+              {soldAnimation.playerName}
+            </div>
+            <div className="mt-2 text-xl lg:text-2xl font-bold text-primary-400">
+              ₹{soldAnimation.price.toLocaleString()}
+            </div>
+            <div className="mt-1 text-lg text-dark-300 font-bold">
+              → {soldAnimation.teamName}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes sold-particle-move {
+          0% { opacity: 0; transform: translate(-50%, -50%) scale(0); }
+          20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+          100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0); }
+        }
+        .sold-overlay-fade {
+          animation: sold-fade-in 0.3s ease-out forwards;
+        }
+        @keyframes sold-fade-in {
+          from { opacity: 0; } to { opacity: 1; }
+        }
+        .sold-content-pop {
+          animation: sold-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes sold-pop {
+          0% { opacity: 0; transform: scale(0.3); }
+          70% { transform: scale(1.08); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        .sold-text-glow {
+          background: linear-gradient(135deg, #fbbf24, #f59e0b, #d97706, #fbbf24);
+          background-size: 200% 200%;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          filter: drop-shadow(0 0 30px rgba(251, 191, 36, 0.5)) drop-shadow(0 0 60px rgba(245, 158, 11, 0.3));
+          animation: sold-shimmer 1.5s linear infinite;
+        }
+        @keyframes sold-shimmer {
+          0% { background-position: 0% 50%; }
+          100% { background-position: 200% 50%; }
+        }
+      `}</style>
     </div>
   );
 }

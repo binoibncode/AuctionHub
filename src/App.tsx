@@ -20,6 +20,7 @@ import Features from './pages/Features';
 import AboutUs from './pages/AboutUs';
 import ContactUs from './pages/ContactUs';
 import PublicAuctionView from './pages/PublicAuctionView';
+import HowItWorks from './pages/HowItWorks';
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
           <Route path="/contact" element={<ContactUs />} />
           <Route path="/pricing" element={<PricingPlans />} />
           <Route path="/live/:id" element={<PublicAuctionView />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
           
           {/* Main App Routes (authenticated) */}
           <Route element={<AppLayout />}>

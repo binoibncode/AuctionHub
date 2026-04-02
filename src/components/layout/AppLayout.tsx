@@ -164,8 +164,8 @@ export default function AppLayout({ roleRequired }: { roleRequired?: string }) {
           
           <button 
             onClick={() => {
-              logout();
-              navigate('/login');
+              navigate('/');
+              setTimeout(() => logout(), 100);
             }}
             className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-bold text-red-500 hover:bg-red-500/10 transition-colors"
           >
