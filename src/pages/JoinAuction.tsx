@@ -183,6 +183,13 @@ const getFieldTextBySport = (sportType: SportType) => {
   }
 };
 
+const formatAuctionDate = (value?: string, pattern = 'MMM dd') => {
+  if (!value) return 'TBD';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'TBD';
+  return format(parsed, pattern);
+};
+
 export default function JoinAuction() {
   const { code } = useParams<{ code: string }>();
   const { user } = useAuth();
@@ -404,7 +411,7 @@ export default function JoinAuction() {
               </div>
               <div className="flex items-center gap-3 text-dark-300 text-sm">
                 <Calendar className="w-5 h-5 text-blue-400" />
-                <span>Starts:<br/><span className="text-white font-bold">{format(new Date(auction.date), 'MMM dd')} at {auction.time}</span></span>
+                <span>Starts:<br/><span className="text-white font-bold">{formatAuctionDate(auction.date, 'MMM dd')} at {auction.time || 'TBD'}</span></span>
               </div>
               <div className="flex items-center gap-3 text-dark-300 text-sm">
                 <MapPin className="w-5 h-5 text-green-400" />

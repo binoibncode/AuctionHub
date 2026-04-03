@@ -76,6 +76,20 @@ export default function PlayerDashboard() {
     return teams.find(team => team.ownerPlayerId === playerId || team.iconPlayerId === playerId) || null;
   };
 
+  const formatAuctionDate = (value?: string) => {
+    if (!value) return 'TBD';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return 'TBD';
+    return format(parsed, 'MMM dd, yyyy');
+  };
+
+  const formatRegisteredAt = (value?: string) => {
+    if (!value) return 'Unknown time';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return 'Unknown time';
+    return format(parsed, 'MMM dd, yyyy · hh:mm a');
+  };
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
       {/* Header */}
@@ -163,7 +177,7 @@ export default function PlayerDashboard() {
                   <h3 className="text-lg font-black text-white mb-2">{auction.name}</h3>
 
                   <div className="flex flex-wrap items-center gap-3 text-sm text-dark-400 mb-3">
-                    <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {format(new Date(auction.date), 'MMM dd, yyyy')}</span>
+                    <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {formatAuctionDate(auction.date)}</span>
                     <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {auction.venue}</span>
                   </div>
 
@@ -207,7 +221,7 @@ export default function PlayerDashboard() {
                   )}
 
                   <div className="mt-3 text-xs text-dark-600">
-                    Registered: {format(new Date(reg.registeredAt), 'MMM dd, yyyy · hh:mm a')}
+                    Registered: {formatRegisteredAt(reg.registeredAt)}
                   </div>
 
                   {player && soldTeam && (player.status === 'sold' || player.status === 'retained') && (

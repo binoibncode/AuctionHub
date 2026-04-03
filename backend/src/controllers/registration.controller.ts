@@ -6,6 +6,16 @@ import { UserModel } from '../models/User.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 
+function normalizePopulatedDoc(value: unknown) {
+  if (!value || typeof value !== 'object') return null;
+  const doc = value as Record<string, unknown> & { _id?: unknown };
+  if (!doc._id) return null;
+  return {
+    ...doc,
+    id: String(doc._id),
+  };
+}
+
 export const getMyRegistrations = asyncHandler(async (req, res) => {
   if (!req.user) {
     throw new ApiError(StatusCodes.UNAUTHORIZED, 'Authentication required');
@@ -18,22 +28,8 @@ export const getMyRegistrations = asyncHandler(async (req, res) => {
 
   const data = registrations.map((reg) => ({
     id: reg._id,
-    auctionId: (() => {
-      if (!reg.auctionId) return null;
-      const auctionDoc = reg.auctionId as unknown as Record<string, unknown> & { _id?: unknown };
-      return {
-        ...auctionDoc,
-        id: String(auctionDoc._id || reg.auctionId),
-      };
-    })(),
-    playerId: (() => {
-      if (!reg.playerId) return null;
-      const playerDoc = reg.playerId as unknown as Record<string, unknown> & { _id?: unknown };
-      return {
-        ...playerDoc,
-        id: String(playerDoc._id || reg.playerId),
-      };
-    })(),
+    auctionId: normalizePopulatedDoc(reg.auctionId),
+    playerId: normalizePopulatedDoc(reg.playerId),
     registeredAt: reg.createdAt,
   }));
 

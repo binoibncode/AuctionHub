@@ -29,6 +29,16 @@ async function bootstrap() {
 
   registerSocketHandlers(io);
 
+  httpServer.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`Port ${env.port} is already in use. Stop the existing process or set a different PORT.`);
+      process.exit(1);
+    }
+
+    console.error('HTTP server failed to start', error);
+    process.exit(1);
+  });
+
   httpServer.listen(env.port, () => {
     console.log(`Server running on http://localhost:${env.port}`);
   });
