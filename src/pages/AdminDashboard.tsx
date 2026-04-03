@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { AlertCircle, X, Plus, Pencil, Trash2, Star } from 'lucide-react';
-import { db } from '../services/db';
+import { api } from '../services/api';
 import { PricingPlan } from '../types';
 
 interface Transaction {
@@ -126,10 +126,22 @@ export default function AdminDashboard() {
   const requireFee = approvedTeams.length + pendingTeams.length > 2;
 
   useEffect(() => {
-    setPricingPlans(db.getPricingPlans());
+    const loadPlans = async () => {
+      try {
+        const res = await api.getPricingPlans();
+        setPricingPlans((res.data as unknown as PricingPlan[]) || []);
+      } catch (error) {
+        console.error('Failed to load pricing plans', error);
+      }
+    };
+
+    void loadPlans();
   }, []);
 
-  const refreshPlans = () => setPricingPlans(db.getPricingPlans());
+  const refreshPlans = async () => {
+    const res = await api.getPricingPlans();
+    setPricingPlans((res.data as unknown as PricingPlan[]) || []);
+  };
 
   const openAddPlan = () => {
     setEditingPlan(null);
@@ -143,36 +155,46 @@ export default function AdminDashboard() {
     setShowPlanForm(true);
   };
 
-  const savePlan = () => {
+  const savePlan = async () => {
     if (!planForm.name.trim()) return;
-    const plan: PricingPlan = {
-      id: editingPlan ? editingPlan.id : `plan-${Date.now()}`,
+    const payload = {
       name: planForm.name.trim(),
       price: planForm.price,
       teams: planForm.teams,
       features: planForm.features.split(',').map(f => f.trim()).filter(Boolean),
       recommended: planForm.recommended,
     };
-    db.savePricingPlan(plan);
-    refreshPlans();
-    setShowPlanForm(false);
-    setEditingPlan(null);
-  };
 
-  const deletePlan = (id: string) => {
-    db.deletePricingPlan(id);
-    refreshPlans();
-  };
-
-  const toggleRecommended = (plan: PricingPlan) => {
-    // Only one plan can be recommended
-    pricingPlans.forEach(p => {
-      if (p.recommended && p.id !== plan.id) {
-        db.savePricingPlan({ ...p, recommended: false });
+    try {
+      if (editingPlan) {
+        await api.updatePricingPlan(editingPlan.id, payload);
+      } else {
+        await api.createPricingPlan(payload);
       }
-    });
-    db.savePricingPlan({ ...plan, recommended: !plan.recommended });
-    refreshPlans();
+      await refreshPlans();
+      setShowPlanForm(false);
+      setEditingPlan(null);
+    } catch (error) {
+      console.error('Failed to save pricing plan', error);
+    }
+  };
+
+  const deletePlan = async (id: string) => {
+    try {
+      await api.deletePricingPlan(id);
+      await refreshPlans();
+    } catch (error) {
+      console.error('Failed to delete pricing plan', error);
+    }
+  };
+
+  const toggleRecommended = async (plan: PricingPlan) => {
+    try {
+      await api.updatePricingPlan(plan.id, { ...plan, recommended: !plan.recommended });
+      await refreshPlans();
+    } catch (error) {
+      console.error('Failed to update recommended plan', error);
+    }
   };
 
   const approveAuction = (auctionId: string) => {
@@ -612,7 +634,7 @@ export default function AdminDashboard() {
                     </div>
                   </td>
                   <td className="py-3 text-center">
-                    <button onClick={() => toggleRecommended(plan)} className="mx-auto block">
+                    <button onClick={() => { void toggleRecommended(plan); }} className="mx-auto block">
                       <Star size={18} className={plan.recommended ? 'text-primary-500 fill-primary-500' : 'text-dark-600 hover:text-dark-400'} />
                     </button>
                   </td>
@@ -621,7 +643,7 @@ export default function AdminDashboard() {
                       <button onClick={() => openEditPlan(plan)} className="text-primary-500 hover:text-primary-400 p-1">
                         <Pencil size={15} />
                       </button>
-                      <button onClick={() => deletePlan(plan.id)} className="text-red-500 hover:text-red-400 p-1">
+                      <button onClick={() => { void deletePlan(plan.id); }} className="text-red-500 hover:text-red-400 p-1">
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -667,7 +689,7 @@ export default function AdminDashboard() {
                 <input type="checkbox" checked={planForm.recommended} onChange={e => setPlanForm(f => ({ ...f, recommended: e.target.checked }))} className="w-4 h-4 rounded border-dark-600 text-primary-500 focus:ring-primary-500 bg-dark-700" />
                 <span className="text-sm text-dark-300">Mark as Recommended</span>
               </label>
-              <button onClick={savePlan} className="btn-primary w-full mt-2">{editingPlan ? 'Update Plan' : 'Add Plan'}</button>
+              <button onClick={() => { void savePlan(); }} className="btn-primary w-full mt-2">{editingPlan ? 'Update Plan' : 'Add Plan'}</button>
             </div>
           </div>
         </div>

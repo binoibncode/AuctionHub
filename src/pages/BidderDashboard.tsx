@@ -1,29 +1,55 @@
 import { useState, useEffect } from 'react';
-import { db } from '../services/db';
-import { AuctionItem, Auction } from '../types';
+import { Auction } from '../types';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Clock, Zap, Calendar, MapPin, Users } from 'lucide-react';
 import { format } from 'date-fns';
+import { api } from '../services/api';
+import { SPORT_CATEGORIES } from '../constants/sports';
 
 export default function BidderDashboard() {
   const [searchParams] = useSearchParams();
   const categoryId = searchParams.get('category');
-  const [items, setItems] = useState<AuctionItem[]>([]);
   const [draftAuctions, setDraftAuctions] = useState<Auction[]>([]);
-  const categories = db.getCategories();
+  const [teamCounts, setTeamCounts] = useState<Record<string, number>>({});
+  const [playerCounts, setPlayerCounts] = useState<Record<string, number>>({});
+  const categories = SPORT_CATEGORIES;
 
   useEffect(() => {
-    let allItems = db.getItems();
-    if (categoryId) {
-      allItems = allItems.filter(i => i.categoryId === categoryId);
-    }
-    setItems(allItems);
+    const load = async () => {
+      try {
+        const [auctionRes, teamRes, playerRes] = await Promise.all([
+          api.getAuctions(),
+          api.getTeams(),
+          api.getPlayers(),
+        ]);
 
-    let allAuctions = db.getAuctions().filter(a => a.status === 'live' || a.status === 'upcoming');
-    if (categoryId) {
-      allAuctions = allAuctions.filter(a => a.categoryId === categoryId);
-    }
-    setDraftAuctions(allAuctions);
+        let allAuctions = (auctionRes.data as unknown as Auction[]) || [];
+        allAuctions = allAuctions.filter((a) => a.status === 'live' || a.status === 'upcoming');
+        if (categoryId) {
+          allAuctions = allAuctions.filter((a) => a.categoryId === categoryId);
+        }
+
+        const nextTeamCounts: Record<string, number> = {};
+        ((teamRes.data as Array<{ auctionId: string }>) || []).forEach((team) => {
+          const auctionKey = String(team.auctionId);
+          nextTeamCounts[auctionKey] = (nextTeamCounts[auctionKey] || 0) + 1;
+        });
+
+        const nextPlayerCounts: Record<string, number> = {};
+        ((playerRes.data as Array<{ auctionId: string }>) || []).forEach((player) => {
+          const auctionKey = String(player.auctionId);
+          nextPlayerCounts[auctionKey] = (nextPlayerCounts[auctionKey] || 0) + 1;
+        });
+
+        setDraftAuctions(allAuctions);
+        setTeamCounts(nextTeamCounts);
+        setPlayerCounts(nextPlayerCounts);
+      } catch (error) {
+        console.error('Failed to load bidder dashboard data', error);
+      }
+    };
+
+    void load();
   }, [categoryId]);
 
   const liveAuctions = draftAuctions.filter(a => a.status === 'live');
@@ -52,8 +78,8 @@ export default function BidderDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {liveAuctions.map(auction => {
               const cat = categories.find(c => c.id === auction.categoryId);
-              const players = db.getPlayers(auction.id);
-              const teams = db.getTeams(auction.id);
+              const players = playerCounts[auction.id] || 0;
+              const teams = teamCounts[auction.id] || 0;
               return (
                 <div key={auction.id} className="card hover:border-primary-500/50 transition-all duration-300 group">
                   <div className="p-5">
@@ -69,8 +95,8 @@ export default function BidderDashboard() {
                     </h3>
 
                     <div className="flex flex-wrap items-center gap-3 text-sm text-dark-400 mb-4">
-                      <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {players.length} Players</span>
-                      <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {teams.length} Teams</span>
+                      <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {players} Players</span>
+                      <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {teams} Teams</span>
                       <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {auction.venue}</span>
                     </div>
 
@@ -89,9 +115,12 @@ export default function BidderDashboard() {
                       </div>
                     </div>
 
-                    <button className="w-full py-2.5 rounded-lg font-bold text-sm bg-primary-500 hover:bg-primary-600 text-white transition-all flex items-center justify-center gap-2">
+                    <Link
+                      to={`/live/${auction.id}`}
+                      className="w-full py-2.5 rounded-lg font-bold text-sm bg-primary-500 hover:bg-primary-600 text-white transition-all flex items-center justify-center gap-2"
+                    >
                       JOIN NOW →
-                    </button>
+                    </Link>
                   </div>
                 </div>
               );
@@ -118,7 +147,7 @@ export default function BidderDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {upcomingAuctions.map(auction => {
               const cat = categories.find(c => c.id === auction.categoryId);
-              const players = db.getPlayers(auction.id);
+              const players = playerCounts[auction.id] || 0;
               return (
                 <div key={auction.id} className="card hover:border-blue-500/30 transition-all duration-300 group">
                   <div className="p-5">
@@ -136,7 +165,7 @@ export default function BidderDashboard() {
                     <div className="flex flex-wrap items-center gap-3 text-sm text-dark-400 mb-3">
                       <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {format(new Date(auction.date), 'MMM dd, yyyy')}</span>
                       <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {auction.time}</span>
-                      <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {players.length} Players</span>
+                      <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {players} Players</span>
                     </div>
 
                     <div className="flex items-center gap-2 text-sm text-dark-400 mb-4">
@@ -154,65 +183,11 @@ export default function BidderDashboard() {
         </section>
       )}
 
-      {/* ═══════════ MEMORABILIA AUCTIONS (existing) ═══════════ */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white">Live & Upcoming Auctions</h1>
-        <p className="text-dark-500 mt-2">Find and bid on premium sports memorabilia.</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {items.map(item => (
-          <div key={item.id} className="card group hover:border-primary-500 transition-colors duration-300">
-            <div className="relative h-48 overflow-hidden">
-              <img 
-                src={item.imageUrl} 
-                alt={item.title} 
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className="absolute top-4 right-4 space-x-2">
-                {item.status === 'live' ? (
-                  <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse">
-                    LIVE
-                  </span>
-                ) : (
-                  <span className="bg-dark-600 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
-                    <Clock className="w-3 h-3"/> Upcoming
-                  </span>
-                )}
-              </div>
-            </div>
-            
-            <div className="p-5">
-              <h3 className="text-lg font-bold text-white mb-2">{item.title}</h3>
-              <p className="text-dark-500 text-sm line-clamp-2 mb-4">{item.description}</p>
-              
-              <div className="flex justify-between items-end mb-4">
-                <div>
-                  <p className="text-dark-500 text-xs uppercase font-bold tracking-wider">Current Bid</p>
-                  <p className="text-2xl font-bold text-primary-500">₹{item.currentPrice}</p>
-                </div>
-              </div>
-
-              <Link 
-                to={`/auction/${item.id}`} 
-                className={`block text-center w-full py-2.5 rounded-lg font-bold transition-all ${
-                  item.status === 'live' 
-                    ? 'bg-primary-500 hover:bg-primary-600 text-white' 
-                    : 'bg-dark-700 hover:bg-dark-600 text-white'
-                }`}
-              >
-                {item.status === 'live' ? 'Enter Auction Room' : 'View Details'}
-              </Link>
-            </div>
-          </div>
-        ))}
-
-        {items.length === 0 && (
-          <div className="col-span-full py-12 text-center text-dark-500">
-            <p className="text-lg">No auctions found for this category.</p>
-          </div>
-        )}
-      </div>
+      {liveAuctions.length === 0 && upcomingAuctions.length === 0 && (
+        <div className="card p-10 text-center text-dark-500">
+          <p className="text-lg">No auctions found for this category.</p>
+        </div>
+      )}
     </div>
   );
 }

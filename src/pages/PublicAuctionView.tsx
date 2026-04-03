@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { db } from '../services/db';
+import { api } from '../services/api';
+import { SPORT_CATEGORIES } from '../constants/sports';
 import { Auction, Team, Player } from '../types';
 import PublicNavbar from '../components/layout/PublicNavbar';
 import {
@@ -16,22 +17,32 @@ export default function PublicAuctionView() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [tab, setTab] = useState<TabType>('updates');
-  const categories = db.getCategories();
+  const categories = SPORT_CATEGORIES;
 
-  const loadData = () => {
+  const loadData = async () => {
     if (!id) return;
-    const a = db.getAuction(id);
-    setAuction(a || null);
-    setTeams(db.getTeams(id));
-    setPlayers(db.getPlayers(id));
+    try {
+      const [auctionRes, teamsRes, playersRes] = await Promise.all([
+        api.getAuctionById(id),
+        api.getTeams({ auctionId: id }),
+        api.getPlayers({ auctionId: id }),
+      ]);
+
+      setAuction((auctionRes.data as unknown as Auction) || null);
+      setTeams((teamsRes.data as unknown as Team[]) || []);
+      setPlayers((playersRes.data as unknown as Player[]) || []);
+    } catch (error) {
+      console.error('Failed to load public auction data', error);
+      setAuction(null);
+    }
   };
 
-  useEffect(() => { loadData(); }, [id]);
+  useEffect(() => { void loadData(); }, [id]);
 
   // Auto-refresh every 5 seconds for live feel
   useEffect(() => {
     if (!auction || auction.status !== 'live') return;
-    const interval = setInterval(loadData, 5000);
+    const interval = setInterval(() => { void loadData(); }, 5000);
     return () => clearInterval(interval);
   }, [auction?.id, auction?.status]);
 

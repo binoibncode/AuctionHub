@@ -1,21 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../services/db';
-import { AuctionRegistration } from '../types';
+import { Auction, Player } from '../types';
+import { api } from '../services/api';
+import { SPORT_CATEGORIES } from '../constants/sports';
 import {
   User, Mail, Phone, MapPin, Shield, Camera,
   Edit3, Lock, Check, X, Eye, EyeOff,
 } from 'lucide-react';
 
 export default function Profile() {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, changePassword } = useAuth();
   const [mode, setMode] = useState<'view' | 'edit' | 'password'>('view');
+  const categories = SPORT_CATEGORIES;
 
   // Edit fields
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [city, setCity] = useState(user?.city || '');
   const [photoUrl, setPhotoUrl] = useState(user?.photoUrl || '');
+  const [purseValue, setPurseValue] = useState(user?.purse || 0);
 
   // Password fields
   const [currentPassword, setCurrentPassword] = useState('');
@@ -28,21 +31,55 @@ export default function Profile() {
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
 
   // Player profile & career
-  const [registrations, setRegistrations] = useState<AuctionRegistration[]>([]);
+  const [registrations, setRegistrations] = useState<Array<{
+    id: string;
+    auctionId: Auction | null;
+    playerId: Player | null;
+    registeredAt: string;
+  }>>([]);
   const [playerDrafts, setPlayerDrafts] = useState<Record<string, { bio: string; career: Record<string, { debut?: string; lastMatch?: string }> }>>({});
 
   useEffect(() => {
-    if (user?.role === 'Player' && mode === 'edit') {
-      const regs = db.getRegistrationsByUser(user.id);
-      setRegistrations(regs);
-      const drafts: Record<string, { bio: string; career: Record<string, { debut?: string; lastMatch?: string }> }> = {};
-      regs.forEach(reg => {
-        const p = db.getPlayer(reg.playerId);
-        if (p) drafts[reg.playerId] = { bio: p.extraDetails || '', career: p.careerDetails ? { ...p.careerDetails } : {} };
-      });
-      setPlayerDrafts(drafts);
-    }
-  }, [mode, user?.id]);
+    const loadPlayerRegistrations = async () => {
+      if (user?.role !== 'Player' || mode !== 'edit') return;
+
+      try {
+        const res = await api.getMyRegistrations();
+        const regs = (res.data as unknown as Array<{
+          id: string;
+          auctionId: Auction | null;
+          playerId: Player | null;
+          registeredAt: string;
+        }>) || [];
+
+        setRegistrations(regs);
+        const drafts: Record<string, { bio: string; career: Record<string, { debut?: string; lastMatch?: string }> }> = {};
+        regs.forEach((reg) => {
+          const player = reg.playerId;
+          if (player) {
+            drafts[player.id] = {
+              bio: player.extraDetails || '',
+              career: player.careerDetails ? { ...player.careerDetails } : {},
+            };
+          }
+        });
+        setPlayerDrafts(drafts);
+      } catch (error) {
+        console.error('Failed to load player registrations for profile', error);
+      }
+    };
+
+    void loadPlayerRegistrations();
+  }, [mode, user?.role]);
+
+  useEffect(() => {
+    if (!user) return;
+    setName(user.name || '');
+    setPhone(user.phone || '');
+    setCity(user.city || '');
+    setPhotoUrl(user.photoUrl || '');
+    setPurseValue(user.purse || 0);
+  }, [user]);
 
   if (!user) return null;
 
@@ -82,42 +119,50 @@ export default function Profile() {
       setPhotoUrl(dataUrl);
       // In view mode, immediately save
       if (mode === 'view') {
-        updateProfile({ ...user, photoUrl: dataUrl });
-        setMessage({ text: 'Photo updated!', ok: true });
-        setTimeout(() => setMessage(null), 2000);
+        updateProfile({ photoUrl: dataUrl }).then((result) => {
+          setMessage({ text: result.message, ok: result.success });
+          setTimeout(() => setMessage(null), 2000);
+        });
       }
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (!name.trim()) {
       setMessage({ text: 'Name is required', ok: false });
       return;
     }
-    updateProfile({
-      ...user,
+
+    const result = await updateProfile({
       name: name.trim(),
       phone: phone.trim() || undefined,
       city: city.trim() || undefined,
       photoUrl: photoUrl || undefined,
+      purse: purseValue,
     });
-    if (user.role === 'Player') {
-      Object.entries(playerDrafts).forEach(([playerId, draft]) => {
-        const p = db.getPlayer(playerId);
-        if (p) db.savePlayer({ ...p, extraDetails: draft.bio, careerDetails: draft.career });
-      });
+
+    if (!result.success) {
+      setMessage({ text: result.message, ok: false });
+      return;
     }
-    setMessage({ text: 'Profile updated successfully!', ok: true });
+
+    if (user.role === 'Player') {
+      await Promise.all(
+        Object.entries(playerDrafts).map(([playerId, draft]) =>
+          api.updatePlayer(playerId, {
+            extraDetails: draft.bio,
+            careerDetails: draft.career,
+          })
+        )
+      );
+    }
+    setMessage({ text: result.message || 'Profile updated successfully!', ok: true });
     setMode('view');
     setTimeout(() => setMessage(null), 3000);
   };
 
-  const handleChangePassword = () => {
-    if (currentPassword !== user.password) {
-      setMessage({ text: 'Current password is incorrect', ok: false });
-      return;
-    }
+  const handleChangePassword = async () => {
     if (newPassword.length < 6) {
       setMessage({ text: 'New password must be at least 6 characters', ok: false });
       return;
@@ -126,8 +171,14 @@ export default function Profile() {
       setMessage({ text: 'Passwords do not match', ok: false });
       return;
     }
-    updateProfile({ ...user, password: newPassword });
-    setMessage({ text: 'Password changed successfully!', ok: true });
+
+    const result = await changePassword(currentPassword, newPassword);
+    if (!result.success) {
+      setMessage({ text: result.message, ok: false });
+      return;
+    }
+
+    setMessage({ text: result.message || 'Password changed successfully!', ok: true });
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
@@ -140,6 +191,7 @@ export default function Profile() {
     setPhone(user.phone || '');
     setCity(user.city || '');
     setPhotoUrl(user.photoUrl || '');
+    setPurseValue(user.purse || 0);
     setMode('view');
     setMessage(null);
   };
@@ -291,8 +343,8 @@ export default function Profile() {
                       <input 
                         type="number"
                         className="input-field pl-8" 
-                        value={user.purse || 0} 
-                        onChange={e => updateProfile({...user, purse: Number(e.target.value)})} 
+                        value={purseValue} 
+                        onChange={e => setPurseValue(Number(e.target.value))} 
                       />
                     </div>
                   </div>
@@ -305,13 +357,13 @@ export default function Profile() {
                       <User className="w-4 h-4 text-primary-500" /> Player Profile &amp; Career
                     </h4>
                     {registrations.map(reg => {
-                      const auction = db.getAuction(reg.auctionId);
-                      if (!auction) return null;
-                      const cats = db.getCategories();
-                      const cat = cats.find(c => c.id === auction.categoryId);
+                      const auction = reg.auctionId;
+                      const player = reg.playerId;
+                      if (!auction || !player) return null;
+                      const cat = categories.find(c => c.id === auction.categoryId);
                       const sportName = cat?.name || '';
                       const formats = getCareerFormats(sportName);
-                      const draft = playerDrafts[reg.playerId] || { bio: '', career: {} };
+                      const draft = playerDrafts[player.id] || { bio: '', career: {} };
                       return (
                         <div key={reg.id} className="bg-dark-800 rounded-xl p-4 border border-dark-700">
                           <div className="flex items-center justify-between mb-3">
@@ -323,7 +375,7 @@ export default function Profile() {
                             <textarea
                               rows={4}
                               value={draft.bio}
-                              onChange={e => updateDraft(reg.playerId, e.target.value)}
+                              onChange={e => updateDraft(player.id, e.target.value)}
                               className="input-field w-full text-sm resize-y"
                               placeholder={`e.g. ${user.name} is a talented ${sportName.toLowerCase()} player who has been making waves...`}
                             />
@@ -342,7 +394,7 @@ export default function Profile() {
                                       <input
                                         type="text"
                                         value={draft.career[fmt]?.debut || ''}
-                                        onChange={e => updateCareer(reg.playerId, fmt, 'debut', e.target.value)}
+                                        onChange={e => updateCareer(player.id, fmt, 'debut', e.target.value)}
                                         className="input-field text-xs py-1.5"
                                         placeholder="e.g. Jan 2020"
                                       />
@@ -352,7 +404,7 @@ export default function Profile() {
                                       <input
                                         type="text"
                                         value={draft.career[fmt]?.lastMatch || ''}
-                                        onChange={e => updateCareer(reg.playerId, fmt, 'lastMatch', e.target.value)}
+                                        onChange={e => updateCareer(player.id, fmt, 'lastMatch', e.target.value)}
                                         className="input-field text-xs py-1.5"
                                         placeholder="e.g. Mar 2024"
                                       />

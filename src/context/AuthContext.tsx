@@ -1,15 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Role } from '../types';
-import { db } from '../services/db';
+import { api } from '../services/api';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password?: string) => { success: boolean; message: string };
+  login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
   register: (data: {
     name: string; email: string; password: string; role: Role;
     phone?: string; city?: string; photoUrl?: string; purse?: number; isIcon?: boolean;
-  }) => { success: boolean; message: string };
-  updateProfile: (updated: User) => void;
+  }) => Promise<{ success: boolean; message: string }>;
+  updateProfile: (updated: Partial<User>) => Promise<{ success: boolean; message: string }>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
 }
 
@@ -19,76 +20,81 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('mock_jwt_token');
-    const storedUserId = localStorage.getItem('current_user_id');
-    
-    if (token && storedUserId) {
-      const users = db.getUsers();
-      const foundUser = users.find(u => u.id === storedUserId);
-      if (foundUser) {
-        setUser(foundUser);
-      } else {
-        localStorage.removeItem('mock_jwt_token');
-        localStorage.removeItem('current_user_id');
-      }
-    }
+    const token = api.getToken();
+    if (!token) return;
+
+    api.me()
+      .then((res) => {
+        if (res.user) setUser(res.user as User);
+      })
+      .catch(() => {
+        api.clearToken();
+        setUser(null);
+      });
   }, []);
 
-  const login = (email: string, password?: string): { success: boolean; message: string } => {
-    const users = db.getUsers();
-    const foundUser = users.find(u => u.email === email);
-    if (!foundUser) {
-      return { success: false, message: 'User not found. Please check your email or register.' };
+  const login = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await api.login(email, password);
+      if (!res.success || !res.user || !res.token) {
+        return { success: false, message: res.message || 'Login failed.' };
+      }
+
+      api.setToken(res.token);
+      setUser(res.user as User);
+      return { success: true, message: 'Login successful!' };
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : 'Login failed.' };
     }
-    // If password provided, validate it. Demo accounts skip password.
-    if (password && foundUser.password && foundUser.password !== password) {
-      return { success: false, message: 'Incorrect password.' };
-    }
-    setUser(foundUser);
-    localStorage.setItem('mock_jwt_token', `eyMock.${foundUser.id}.JWT`);
-    localStorage.setItem('current_user_id', foundUser.id);
-    return { success: true, message: 'Login successful!' };
   };
 
-  const register = (data: {
+  const register = async (data: {
     name: string; email: string; password: string; role: Role;
     phone?: string; city?: string; photoUrl?: string; purse?: number; isIcon?: boolean;
-  }): { success: boolean; message: string } => {
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      name: data.name,
-      email: data.email,
-      password: data.password,
-      phone: data.phone,
-      city: data.city,
-      photoUrl: data.photoUrl,
-      role: data.role,
-      isIcon: data.isIcon,
-      ...((data.role === 'Bidder' || (data.role === 'Player' && data.isIcon)) && data.purse ? { purse: data.purse } : {}),
-    };
+  }): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await api.register(data);
+      if (!res.success || !res.user || !res.token) {
+        return { success: false, message: res.message || 'Registration failed.' };
+      }
 
-    const result = db.addUser(newUser);
-    if (result.success) {
-      setUser(newUser);
-      localStorage.setItem('mock_jwt_token', `eyMock.${newUser.id}.JWT`);
-      localStorage.setItem('current_user_id', newUser.id);
+      api.setToken(res.token);
+      setUser(res.user as User);
+      return { success: true, message: 'Registration successful!' };
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : 'Registration failed.' };
     }
-    return result;
   };
 
-  const updateProfile = (updated: User) => {
-    db.updateUser(updated);
-    setUser(updated);
+  const updateProfile = async (updated: Partial<User>): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await api.updateMe(updated);
+      if (!res.success || !res.user) {
+        return { success: false, message: res.message || 'Failed to update profile.' };
+      }
+      setUser(res.user as User);
+      return { success: true, message: 'Profile updated successfully!' };
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : 'Failed to update profile.' };
+    }
+  };
+
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await api.changePassword(currentPassword, newPassword);
+      return { success: true, message: res.message || 'Password changed successfully!' };
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : 'Failed to change password.' };
+    }
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('mock_jwt_token');
-    localStorage.removeItem('current_user_id');
+    api.clearToken();
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, updateProfile, logout }}>
+    <AuthContext.Provider value={{ user, login, register, updateProfile, changePassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

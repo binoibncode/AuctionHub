@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { db } from '../services/db';
-import { Auction } from '../types';
+import { api } from '../services/api';
+import { SPORT_CATEGORIES } from '../constants/sports';
 import {
   Calendar, Clock, MapPin, Users, Trophy,
   DollarSign, TrendingUp, Hash, ArrowLeft, Zap, Camera
@@ -10,9 +9,8 @@ import {
 import { compressImage } from '../utils/image';
 
 export default function CreateAuction() {
-  const { user } = useAuth();
   const navigate = useNavigate();
-  const categories = db.getCategories();
+  const categories = SPORT_CATEGORIES;
 
   const [form, setForm] = useState({
     categoryId: '',
@@ -48,7 +46,7 @@ export default function CreateAuction() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -63,12 +61,9 @@ export default function CreateAuction() {
     if (form.bidIncreaseBy < 50) { setError('Bid increase must be at least 50.'); return; }
     if (form.totalTeams < 2) { setError('There must be at least 2 teams.'); return; }
 
-    const auction: Auction = {
-      id: `auction-${Date.now()}`,
-      organizerId: user!.id,
+    const payload = {
       categoryId: form.categoryId,
       name: form.name.trim(),
-      auctionCode: db.generateAuctionCode(),
       date: new Date(form.date).toISOString(),
       time: form.time,
       venue: form.venue.trim(),
@@ -79,11 +74,14 @@ export default function CreateAuction() {
       totalTeams: form.totalTeams,
       status: 'upcoming',
       logoUrl: form.logoUrl || undefined,
-      createdAt: new Date().toISOString(),
     };
 
-    db.saveAuction(auction);
-    navigate('/organizer');
+    try {
+      await api.createAuction(payload);
+      navigate('/organizer');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create auction.');
+    }
   };
 
   const selectedCat = categories.find(c => c.id === form.categoryId);

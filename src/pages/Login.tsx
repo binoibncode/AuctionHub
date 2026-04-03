@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate, Link, useSearchParams } from 'react-router-dom';
 import { User, KeyRound, Lock, Mail, ArrowLeft, ShieldCheck } from 'lucide-react';
-import { db } from '../services/db';
+import { api } from '../services/api';
 import Swal from 'sweetalert2';
 
 export default function Login() {
@@ -25,48 +25,45 @@ export default function Login() {
     return <Navigate to="/bidder" replace />;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const result = login(email, password || undefined);
+    if (!password.trim()) {
+      setError('Password is required.');
+      return;
+    }
+    const result = await login(email, password);
     if (!result.success) {
       setError(result.message);
     }
   };
 
-  const quickLogin = (mail: string) => {
+  const quickLogin = async (mail: string) => {
+    const demoPasswords: Record<string, string> = {
+      'admin@auction.com': 'admin123',
+      'org@auction.com': 'org123',
+      'bidder@auction.com': 'bidder123',
+      'player@auction.com': 'player123',
+    };
     setEmail(mail);
-    setPassword('');
-    // Quick login skips password for demo accounts
-    const result = login(mail);
+    setPassword(demoPasswords[mail] || '');
+    const result = await login(mail, demoPasswords[mail] || '');
     if (!result.success) setError(result.message);
   };
 
-  const generatePassword = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$!';
-    let pwd = '';
-    for (let i = 0; i < 10; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
-    return pwd;
-  };
-
-  const handleForgotPassword = (e: React.FormEvent) => {
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setForgotError('');
     if (!forgotEmail.trim()) {
       setForgotError('Please enter your email address.');
       return;
     }
-    const users = db.getUsers();
-    const foundUser = users.find(u => u.email.toLowerCase() === forgotEmail.trim().toLowerCase());
-    if (!foundUser) {
-      setForgotError('No account found with this email address.');
-      return;
-    }
+
     setForgotLoading(true);
-    // Simulate sending email
-    setTimeout(() => {
-      const newPassword = generatePassword();
-      db.updateUser({ ...foundUser, password: newPassword });
+
+    try {
+      const res = await api.forgotPasswordDemo(forgotEmail.trim());
+      const demoPassword = res.newPassword;
       setForgotLoading(false);
       setShowForgot(false);
       setForgotEmail('');
@@ -77,7 +74,7 @@ export default function Login() {
           <p style="color:#9ca3af;margin-bottom:12px;">A new password has been sent to your registered email address.</p>
           <div style="background:#1f2937;border:1px solid #374151;border-radius:8px;padding:12px;margin-top:8px;">
             <p style="color:#6b7280;font-size:13px;margin-bottom:4px;">New Password</p>
-            <p style="color:#22c55e;font-size:18px;font-weight:bold;letter-spacing:1px;">${newPassword}</p>
+            <p style="color:#22c55e;font-size:18px;font-weight:bold;letter-spacing:1px;">${demoPassword || ''}</p>
           </div>
           <p style="color:#6b7280;font-size:12px;margin-top:12px;">⚠️ Since this is a demo, the password is shown here instead of being emailed.</p>
         `,
@@ -86,7 +83,10 @@ export default function Login() {
         confirmButtonColor: '#ef4444',
         confirmButtonText: 'Got it!',
       });
-    }, 1500);
+    } catch (error) {
+      setForgotLoading(false);
+      setForgotError(error instanceof Error ? error.message : 'Failed to reset password.');
+    }
   };
 
   return (

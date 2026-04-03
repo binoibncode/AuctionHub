@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { X, Edit2, Check, User as UserIcon } from 'lucide-react';
-import { Player, Auction } from '../../types';
-import { db } from '../../services/db';
+import { Player, Auction, Team } from '../../types';
+import { api } from '../../services/api';
+import { SPORT_CATEGORIES } from '../../constants/sports';
 
 interface PlayerProfileModalProps {
   isOpen: boolean;
@@ -20,22 +21,35 @@ export default function PlayerProfileModal({
 }: PlayerProfileModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState(player ? { ...player } : null);
+  const [teams, setTeams] = useState<Team[]>([]);
 
   useEffect(() => {
     setFormData(player ? { ...player } : null);
     setIsEditing(false);
   }, [player?.id, isOpen]);
 
+  useEffect(() => {
+    const loadTeams = async () => {
+      if (!isOpen || !auction) return;
+      try {
+        const res = await api.getTeams({ auctionId: auction.id });
+        setTeams((res.data as unknown as Team[]) || []);
+      } catch (error) {
+        console.error('Failed to load teams for profile modal', error);
+        setTeams([]);
+      }
+    };
+
+    void loadTeams();
+  }, [isOpen, auction?.id]);
+
   if (!isOpen || !player || !auction) return null;
 
-  const allUsers = db.getUsers();
-  const teams = db.getTeams(auction.id);
-  const categories = db.getCategories();
+  const categories = SPORT_CATEGORIES;
   const cat = categories.find(c => c.id === auction.categoryId);
   const sport = (cat?.name || '').toLowerCase();
 
-  const linkedUser = player.userId ? allUsers.find(u => u.id === player.userId) : null;
-  const photoUrl = player.photoUrl || linkedUser?.photoUrl;
+  const photoUrl = player.photoUrl;
   const soldTeam = player.soldToTeamId ? teams.find(t => t.id === player.soldToTeamId) : null;
 
   const getCareerFormats = () => {
@@ -94,11 +108,15 @@ export default function PlayerProfileModal({
     ];
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData) return;
-    db.savePlayer(formData);
-    setIsEditing(false);
-    onSave?.();
+    try {
+      await api.updatePlayer(formData.id, formData as unknown as Record<string, unknown>);
+      setIsEditing(false);
+      onSave?.();
+    } catch (error) {
+      console.error('Failed to save player profile', error);
+    }
   };
 
   const handleChange = (key: keyof Player, value: any) => {
@@ -205,10 +223,10 @@ export default function PlayerProfileModal({
                     <span className="text-dark-500 uppercase font-bold text-xs">Role</span>
                     <p className="text-white font-bold">{player.role || player.category || '-'}</p>
                   </div>
-                  {linkedUser?.city && (
+                  {player.extraDetails && (
                     <div>
                       <span className="text-dark-500 uppercase font-bold text-xs">Place</span>
-                      <p className="text-white font-bold">{linkedUser.city}</p>
+                      <p className="text-white font-bold">{player.extraDetails}</p>
                     </div>
                   )}
                   <div>

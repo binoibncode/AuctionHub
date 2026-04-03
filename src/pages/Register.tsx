@@ -43,7 +43,7 @@ export default function Register() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -54,7 +54,7 @@ export default function Register() {
     if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
     if (role === 'Bidder' && purse <= 0) { setError('Purse amount must be greater than 0.'); return; }
 
-    const result = register({
+    const result = await register({
       name: name.trim(),
       email: email.trim(),
       password,

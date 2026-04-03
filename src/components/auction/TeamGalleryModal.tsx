@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, Share2, Download, Shield, Printer } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { format } from 'date-fns';
-import { Team, Auction } from '../../types';
-import { db } from '../../services/db';
+import { Team, Auction, Player } from '../../types';
+import { api } from '../../services/api';
 
 interface TeamGalleryModalProps {
   isOpen: boolean;
@@ -14,14 +14,26 @@ interface TeamGalleryModalProps {
 
 export default function TeamGalleryModal({ isOpen, onClose, team, auction }: TeamGalleryModalProps) {
   const [isExporting, setIsExporting] = useState(false);
+  const [teamPlayers, setTeamPlayers] = useState<Player[]>([]);
   const galleryRef = useRef<HTMLDivElement>(null);
 
-  if (!isOpen || !team || !auction) return null;
+  useEffect(() => {
+    const loadTeamPlayers = async () => {
+      if (!isOpen || !team) return;
+      try {
+        const playersRes = await api.getPlayers({ auctionId: team.auctionId });
+        const auctionPlayers = (playersRes.data as unknown as Player[]) || [];
+        setTeamPlayers(auctionPlayers.filter((p) => String(p.soldToTeamId || '') === team.id));
+      } catch (error) {
+        console.error('Failed to load team gallery players', error);
+        setTeamPlayers([]);
+      }
+    };
 
-  // Fetch players for the team
-  const allUsers = db.getUsers();
-  const auctionPlayers = db.getPlayers(team.auctionId);
-  const teamPlayers = auctionPlayers.filter(p => p.soldToTeamId === team.id);
+    void loadTeamPlayers();
+  }, [isOpen, team?.id, team?.auctionId]);
+
+  if (!isOpen || !team || !auction) return null;
 
   // Sort players - Owner first, then Icon, then the rest by price
   const sortedPlayers = [...teamPlayers].sort((a, b) => {
@@ -196,8 +208,7 @@ export default function TeamGalleryModal({ isOpen, onClose, team, auction }: Tea
               /* Player Grid */
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-4 sm:gap-y-5">
                 {sortedPlayers.map(player => {
-                  const linkedUser = player.userId ? allUsers.find(u => u.id === player.userId) : null;
-                  const photoUrl = player.photoUrl || linkedUser?.photoUrl;
+                  const photoUrl = player.photoUrl;
                   
                   return (
                     <div key={player.id} className="flex flex-col rounded-[10px] border border-slate-200 bg-slate-50 shadow-sm overflow-hidden transform transition-all hover:-translate-y-0.5 hover:shadow-md">

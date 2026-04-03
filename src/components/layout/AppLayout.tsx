@@ -1,8 +1,8 @@
 
 import { Outlet, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { db } from '../../services/db';
 import { LogOut, Trophy, Activity, Users, CreditCard, User } from 'lucide-react';
+import { SPORT_CATEGORIES } from '../../constants/sports';
 
 export default function AppLayout({ roleRequired }: { roleRequired?: string }) {
   const { user, logout } = useAuth();
@@ -17,7 +17,7 @@ export default function AppLayout({ roleRequired }: { roleRequired?: string }) {
     return <Navigate to="/" replace />;
   }
 
-  const categories = db.getCategories();
+  const categories = SPORT_CATEGORIES;
 
   return (
     <div className="flex h-screen bg-dark-900 overflow-hidden text-white font-sans">

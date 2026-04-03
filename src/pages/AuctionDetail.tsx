@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { db } from '../services/db';
+import { api } from '../services/api';
 import { Auction, Team, Player } from '../types';
+import { SPORT_CATEGORIES } from '../constants/sports';
 import { format } from 'date-fns';
 import Swal from 'sweetalert2';
 import {
@@ -53,7 +54,7 @@ export default function AuctionDetail() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const categories = db.getCategories();
+  const categories = SPORT_CATEGORIES;
 
   // Add Team form
   const [showAddTeam, setShowAddTeam] = useState(false);
@@ -74,7 +75,6 @@ export default function AuctionDetail() {
   const [profilePlayer, setProfilePlayer] = useState<Player | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [showTeamPoster, setShowTeamPoster] = useState(false);
-  const allUsers = db.getUsers();
 
   // Add Player form
   const [showAddPlayer, setShowAddPlayer] = useState(false);
@@ -86,15 +86,27 @@ export default function AuctionDetail() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [id]);
 
-  const loadData = () => {
+  const loadData = async () => {
     if (!id) return;
-    const a = db.getAuction(id);
-    setAuction(a || null);
-    setTeams(db.getTeams(id));
-    setPlayers(db.getPlayers(id));
+    try {
+      const [auctionRes, teamsRes, playersRes] = await Promise.all([
+        api.getAuctionById(id),
+        api.getTeams({ auctionId: id }),
+        api.getPlayers({ auctionId: id }),
+      ]);
+
+      setAuction((auctionRes.data as unknown as Auction) || null);
+      setTeams((teamsRes.data as unknown as Team[]) || []);
+      setPlayers((playersRes.data as unknown as Player[]) || []);
+    } catch (error) {
+      console.error('Failed to load auction detail data', error);
+      setAuction(null);
+      setTeams([]);
+      setPlayers([]);
+    }
   };
 
   if (!auction) return <div className="p-8 text-white">Auction not found.</div>;
@@ -125,48 +137,55 @@ export default function AuctionDetail() {
   };
 
   // ── Team Actions ──
-  const handleAddTeam = () => {
+  const handleAddTeam = async () => {
     if (!teamName.trim() || !ownerName.trim()) return;
     if (teams.length >= auction.totalTeams) return;
 
-    const team: Team = {
-      id: `team-${Date.now()}`,
-      auctionId: auction.id,
-      name: teamName.trim(),
-      ownerName: ownerName.trim(),
-      isOwnerPlaying,
-      pointsSpent: 0,
-      players: [],
-      logoUrl: teamLogo || undefined,
-      place: teamPlace.trim() || undefined,
-    };
-
-    // If owner is playing, create a retained player entry
-    if (isOwnerPlaying) {
-      const ownerPlayer: Player = {
-        id: `player-owner-${Date.now()}`,
+    try {
+      const teamRes = await api.createTeam({
         auctionId: auction.id,
-        name: ownerName.trim(),
-        sport: cat?.name || '',
-        role: 'Owner (Player)',
-        basePrice: 0,
-        isIcon: false,
-        isOwner: true,
-        status: 'retained',
-        soldToTeamId: team.id,
-      };
-      db.savePlayer(ownerPlayer);
-      team.ownerPlayerId = ownerPlayer.id;
+        name: teamName.trim(),
+        ownerName: ownerName.trim(),
+        isOwnerPlaying,
+        pointsSpent: 0,
+        players: [],
+        logoUrl: teamLogo || undefined,
+        place: teamPlace.trim() || undefined,
+      });
+
+      const createdTeam = (teamRes.data as unknown as Team | undefined);
+
+      if (createdTeam && isOwnerPlaying) {
+        const ownerPlayerRes = await api.createPlayer({
+          auctionId: auction.id,
+          name: ownerName.trim(),
+          sport: cat?.name || '',
+          role: 'Owner (Player)',
+          basePrice: 0,
+          isIcon: false,
+          isOwner: true,
+          status: 'retained',
+          soldToTeamId: createdTeam.id,
+        });
+
+        const ownerPlayer = ownerPlayerRes.data as unknown as Player | undefined;
+        if (ownerPlayer) {
+          await api.updateTeam(createdTeam.id, { ownerPlayerId: ownerPlayer.id });
+        }
+      }
+
+      await loadData();
+    } catch (error) {
+      console.error('Failed to add team', error);
+      return;
     }
 
-    db.saveTeam(team);
     setTeamName('');
     setOwnerName('');
     setTeamLogo('');
     setIsOwnerPlaying(false);
     setTeamPlace('');
     setShowAddTeam(false);
-    loadData();
   };
 
     const openEditTeam = (team: Team) => {
@@ -176,11 +195,22 @@ export default function AuctionDetail() {
       setEditTeamPlace(team.place || '');
     };
 
-    const handleSaveEditTeam = () => {
+    const handleSaveEditTeam = async () => {
       if (!editingTeam || !editTeamName.trim() || !editOwnerName.trim()) return;
-      db.saveTeam({ ...editingTeam, name: editTeamName.trim(), ownerName: editOwnerName.trim(), place: editTeamPlace.trim() || undefined });
+
+      try {
+        await api.updateTeam(editingTeam.id, {
+          name: editTeamName.trim(),
+          ownerName: editOwnerName.trim(),
+          place: editTeamPlace.trim() || undefined,
+        });
+      } catch (error) {
+        console.error('Failed to update team', error);
+        return;
+      }
+
       setEditingTeam(null);
-      loadData();
+      await loadData();
     };
 
     const handleCancelEditTeam = () => setEditingTeam(null);
@@ -190,10 +220,9 @@ export default function AuctionDetail() {
     if (!file || !auction) return;
     try {
       const compressedUrl = await compressImage(file, 400, 0.7);
-      const updated = { ...auction, logoUrl: compressedUrl };
-      db.saveAuction(updated);
-      setAuction(updated);
-      loadData();
+      const updatedRes = await api.updateAuction(auction.id, { logoUrl: compressedUrl });
+      setAuction((updatedRes.data as unknown as Auction) || auction);
+      await loadData();
     } catch (err) {
       console.error('Error uploading auction logo:', err);
     }
@@ -206,87 +235,100 @@ export default function AuctionDetail() {
       const compressedUrl = await compressImage(file, 200, 0.7);
       const team = teams.find(t => t.id === teamId);
       if (team) {
-        db.saveTeam({ ...team, logoUrl: compressedUrl });
-        loadData();
+        await api.updateTeam(team.id, { logoUrl: compressedUrl });
+        await loadData();
       }
     } catch (err) {
       console.error('Error uploading team logo:', err);
     }
   };
 
-  const handleDeleteTeam = (teamId: string) => {
+  const handleDeleteTeam = async (teamId: string) => {
     // Remove retained players for this team
     const teamPlayers = players.filter(p => p.soldToTeamId === teamId && (p.isIcon || p.isOwner));
-    teamPlayers.forEach(p => db.deletePlayer(p.id));
-    db.deleteTeam(teamId);
-    loadData();
+    try {
+      await Promise.all(teamPlayers.map((p) => api.deletePlayer(p.id)));
+      await api.deleteTeam(teamId);
+      await loadData();
+    } catch (error) {
+      console.error('Failed to delete team', error);
+    }
   };
 
   // ── Player Actions ──
-  const handleAddPlayer = () => {
+  const handleAddPlayer = async () => {
     if (!playerName.trim() || !playerRole.trim() || playerBasePrice < auction.minimumBid) return;
-    const player: Player = {
-      id: `player-${Date.now()}`,
-      auctionId: auction.id,
-      name: playerName.trim(),
-      sport: cat?.name || '',
-      role: playerRole.trim(),
-      basePrice: playerBasePrice,
-      isIcon: false,
-      isOwner: false,
-      status: 'available',
-    };
-    db.savePlayer(player);
+
+    try {
+      await api.createPlayer({
+        auctionId: auction.id,
+        name: playerName.trim(),
+        sport: cat?.name || '',
+        role: playerRole.trim(),
+        basePrice: playerBasePrice,
+        isIcon: false,
+        isOwner: false,
+        status: 'available',
+      });
+      await loadData();
+    } catch (error) {
+      console.error('Failed to add player', error);
+      return;
+    }
+
     setPlayerName('');
     setPlayerRole('');
     setPlayerBasePrice(auction.minimumBid);
     setShowAddPlayer(false);
-    loadData();
   };
 
-  const handleDeletePlayer = (playerId: string) => {
-    // Also clean up team references
-    const player = players.find(p => p.id === playerId);
-    if (player?.isIcon || player?.isOwner) {
-      const team = teams.find(t => t.iconPlayerId === playerId || t.ownerPlayerId === playerId);
-      if (team) {
-        const updated = { ...team };
-        if (updated.iconPlayerId === playerId) updated.iconPlayerId = undefined;
-        if (updated.ownerPlayerId === playerId) updated.ownerPlayerId = undefined;
-        db.saveTeam(updated);
-      }
+  const handleDeletePlayer = async (playerId: string) => {
+    try {
+      await api.deletePlayer(playerId);
+      await loadData();
+    } catch (error) {
+      console.error('Failed to delete player', error);
     }
-    db.deletePlayer(playerId);
-    loadData();
   };
 
   // ── Set Icon Player ──
-  const handleSetIcon = (teamId: string, playerId: string) => {
+  const handleSetIcon = async (teamId: string, playerId: string) => {
     const team = teams.find(t => t.id === teamId);
     if (!team) return;
 
-    // Remove old icon if exists
-    if (team.iconPlayerId) {
-      const oldIcon = players.find(p => p.id === team.iconPlayerId);
-      if (oldIcon) {
-        db.savePlayer({ ...oldIcon, isIcon: false, status: 'available', soldToTeamId: undefined });
+    try {
+      if (team.iconPlayerId) {
+        await api.updatePlayer(team.iconPlayerId, {
+          isIcon: false,
+          status: 'available',
+          soldToTeamId: null,
+          soldPrice: null,
+        });
       }
-    }
 
-    // Set new icon
-    const player = players.find(p => p.id === playerId);
-    if (player) {
-      db.savePlayer({ ...player, isIcon: true, isOwner: false, status: 'retained', soldToTeamId: teamId, soldPrice: undefined });
-      db.saveTeam({ ...team, iconPlayerId: playerId });
+      await api.updatePlayer(playerId, {
+        isIcon: true,
+        isOwner: false,
+        status: 'retained',
+        soldToTeamId: teamId,
+        soldPrice: null,
+      });
+
+      await api.updateTeam(teamId, { iconPlayerId: playerId });
+      await loadData();
+    } catch (error) {
+      console.error('Failed to set icon player', error);
     }
-    loadData();
   };
 
   // ── Auction Status ──
-  const handleStatusChange = (newStatus: 'live' | 'upcoming' | 'closed') => {
-    const updated = { ...auction, status: newStatus };
-    db.saveAuction(updated);
-    setAuction(updated);
+  const handleStatusChange = async (newStatus: 'live' | 'upcoming' | 'closed') => {
+    try {
+      const res = await api.updateAuctionStatus(auction.id, newStatus);
+      setAuction((res.data as unknown as Auction) || { ...auction, status: newStatus });
+    } catch (error) {
+      console.error('Failed to update auction status', error);
+    }
   };
 
   // ── Payment Gate Handler ──
@@ -793,8 +835,7 @@ export default function AuctionDetail() {
             ) : (
               sortedPlayers.map(player => {
                 const soldTeam = player.soldToTeamId ? teams.find(t => t.id === player.soldToTeamId) : null;
-                const linkedUser = player.userId ? allUsers.find(u => u.id === player.userId) : null;
-                const photoUrl = player.photoUrl || linkedUser?.photoUrl;
+                const photoUrl = player.photoUrl;
 
                 return (
                   <div key={player.id} className={`card p-4 hover:border-dark-600 transition-colors ${
@@ -875,7 +916,7 @@ export default function AuctionDetail() {
         isOpen={!!rosterTeam} 
         onClose={() => setRosterTeam(null)} 
         team={rosterTeam ? teams.find(t => t.id === rosterTeam.id) || rosterTeam : null} 
-        onPlayerUpdate={loadData}
+        onPlayerUpdate={() => { void loadData(); }}
       />
 
       <TeamGalleryModal
@@ -903,23 +944,25 @@ export default function AuctionDetail() {
         isOpen={!!editingPlayer}
         onClose={() => setEditingPlayer(null)}
         player={editingPlayer}
-        onSave={(updated) => {
-          db.savePlayer(updated);
-          
-          if (updated.status === 'sold' && updated.soldToTeamId) {
-            const auctionPlayers = db.getPlayers(updated.auctionId);
-            const teamSpent = auctionPlayers
-              .filter(p => p.soldToTeamId === updated.soldToTeamId && p.status === 'sold')
-              .reduce((sum, p) => sum + (p.soldPrice || 0), 0);
-              
-            const t = db.getTeam(updated.soldToTeamId);
-            if (t) {
-              db.saveTeam({ ...t, pointsSpent: teamSpent });
+        onSave={async (updated) => {
+          try {
+            await api.updatePlayer(updated.id, updated as unknown as Record<string, unknown>);
+
+            if (updated.status === 'sold' && updated.soldToTeamId) {
+              const playersRes = await api.getPlayers({ auctionId: updated.auctionId });
+              const auctionPlayers = (playersRes.data as unknown as Player[]) || [];
+              const teamSpent = auctionPlayers
+                .filter((p) => p.soldToTeamId === updated.soldToTeamId && p.status === 'sold')
+                .reduce((sum, p) => sum + (p.soldPrice || 0), 0);
+
+              await api.updateTeam(updated.soldToTeamId, { pointsSpent: teamSpent });
             }
+
+            await loadData();
+            setEditingPlayer(null);
+          } catch (error) {
+            console.error('Failed to update player', error);
           }
-          
-          loadData();
-          setEditingPlayer(null);
         }}
       />
 

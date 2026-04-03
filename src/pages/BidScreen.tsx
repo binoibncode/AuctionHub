@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { db } from '../services/db';
+import { api } from '../services/api';
+import { SPORT_CATEGORIES } from '../constants/sports';
 import { Auction, Team, Player } from '../types';
 import Swal from 'sweetalert2';
 import {
@@ -30,17 +31,27 @@ export default function BidScreen() {
   const [useRandomOrder, setUseRandomOrder] = useState(false);
   const [shuffledIds, setShuffledIds] = useState<string[] | null>(null);
   const [soldAnimation, setSoldAnimation] = useState<{ playerName: string; teamName: string; price: number } | null>(null);
-  const categories = db.getCategories();
-  const allUsers = db.getUsers();
+  const categories = SPORT_CATEGORIES;
 
-  const loadData = () => {
+  const loadData = async () => {
     if (!id) return;
-    const a = db.getAuction(id);
-    setAuction(a || null);
-    setTeams(db.getTeams(id));
-    
-    const players = db.getPlayers(id);
-    setAllPlayers(players);
+
+    try {
+      const [auctionRes, teamsRes, playersRes] = await Promise.all([
+        api.getAuctionById(id),
+        api.getTeams({ auctionId: id }),
+        api.getPlayers({ auctionId: id }),
+      ]);
+
+      setAuction((auctionRes.data as unknown as Auction) || null);
+      setTeams((teamsRes.data as unknown as Team[]) || []);
+      setAllPlayers((playersRes.data as unknown as Player[]) || []);
+    } catch (error) {
+      console.error('Failed to load bid screen data', error);
+      setAuction(null);
+      setTeams([]);
+      setAllPlayers([]);
+    }
   };
 
   const generateRandomOrder = (availablePlayerIds: string[]) => {
@@ -73,7 +84,7 @@ export default function BidScreen() {
     }
   };
 
-  useEffect(() => { loadData(); }, [id]);
+  useEffect(() => { void loadData(); }, [id]);
 
   // Compute derived state (safe even when auction is null)
   const cat = auction ? categories.find(c => c.id === auction.categoryId) : null;
@@ -152,13 +163,14 @@ export default function BidScreen() {
     }
   };
 
-  const handleSold = () => {
+  const handleSold = async () => {
     if (!currentPlayer || !selectedTeamId) return;
     const soldPlayerName = currentPlayer.name;
     const soldTeam = teams.find(t => t.id === selectedTeamId);
     const soldPrice = currentBid;
-    const result = db.purchasePlayer(currentPlayer.id, selectedTeamId, currentBid);
-    if (result.success) {
+
+    try {
+      await api.purchasePlayer(currentPlayer.id, selectedTeamId, currentBid);
       setBidLog(prev => [{
         playerName: soldPlayerName,
         teamName: soldTeam?.name || '',
@@ -167,7 +179,7 @@ export default function BidScreen() {
       // Show sold animation instead of alert
       setSoldAnimation({ playerName: soldPlayerName, teamName: soldTeam?.name || '', price: soldPrice });
       setTimeout(() => setSoldAnimation(null), 3000);
-      loadData();
+      await loadData();
       setShowAttributes(false);
       setCurrentPlayerIdx(0);
       setSelectedTeamId(null);
@@ -175,16 +187,22 @@ export default function BidScreen() {
         const updatedShuffledIds = shuffledIds.filter(id => id !== currentPlayer.id);
         setShuffledIds(updatedShuffledIds);
       }
-    } else {
-      showAlert(result.message, false);
+    } catch (error) {
+      showAlert(error instanceof Error ? error.message : 'Failed to complete sale', false);
     }
   };
 
-  const handleUnsold = () => {
+  const handleUnsold = async () => {
     if (!currentPlayer) return;
-    db.markPlayerUnsold(currentPlayer.id);
-    showAlert(`${currentPlayer.name} marked as unsold`, true);
-    loadData();
+    try {
+      await api.markPlayerUnsold(currentPlayer.id);
+      showAlert(`${currentPlayer.name} marked as unsold`, true);
+      await loadData();
+    } catch (error) {
+      showAlert(error instanceof Error ? error.message : 'Failed to mark unsold', false);
+      return;
+    }
+
     setShowAttributes(false);
     // Reset to first player after marking unsold
     setCurrentPlayerIdx(0);
@@ -274,8 +292,7 @@ export default function BidScreen() {
                 <div className="text-center mb-4">
                   <div className="w-48 h-48 rounded-full mx-auto flex items-center justify-center text-5xl font-black text-white mb-4 overflow-hidden border-[6px] border-dark-700 shadow-2xl bg-dark-600">
                     {(() => {
-                      const linkedUser = currentPlayer.userId ? allUsers.find(u => u.id === currentPlayer.userId) : null;
-                      const photoUrl = currentPlayer.photoUrl || linkedUser?.photoUrl;
+                      const photoUrl = currentPlayer.photoUrl;
                       return photoUrl ? (
                          <button onClick={() => setEnlargedImage(photoUrl)} className="w-full h-full relative group block cursor-pointer bg-dark-800" title="View Photo">
                            <img src={photoUrl} alt={currentPlayer.name} className="w-full h-full object-cover" />

@@ -1,8 +1,8 @@
-import { useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, User as UserIcon, Edit2, ZoomIn, Share2, Download } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { Team, Player } from '../../types';
-import { db } from '../../services/db';
+import { api } from '../../services/api';
 import EditPlayerModal from './EditPlayerModal';
 import ImageModal from '../ui/ImageModal';
 
@@ -26,7 +26,25 @@ export default function TeamRosterModal({
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [teamPlayers, setTeamPlayers] = useState<Player[]>([]);
   const rosterRef = useRef<HTMLDivElement>(null);
+
+  const loadTeamPlayers = async () => {
+    if (!team) return;
+    try {
+      const playersRes = await api.getPlayers({ auctionId: team.auctionId });
+      const auctionPlayers = (playersRes.data as unknown as Player[]) || [];
+      setTeamPlayers(auctionPlayers.filter((p) => p.soldToTeamId === team.id));
+    } catch (error) {
+      console.error('Failed to load team roster players', error);
+      setTeamPlayers([]);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen || !team) return;
+    void loadTeamPlayers();
+  }, [isOpen, team?.id, team?.auctionId]);
 
   const handleExport = async () => {
     if (!rosterRef.current || !team) return;
@@ -69,13 +87,6 @@ export default function TeamRosterModal({
   };
 
   if (!isOpen || !team) return null;
-
-  // Get all users to fetch photos
-  const allUsers = db.getUsers();
-  
-  // Get players in this team
-  const auctionPlayers = db.getPlayers(team.auctionId);
-  const teamPlayers = auctionPlayers.filter(p => p.soldToTeamId === team.id);
 
   // Sort players - Owner first, then Icon, then the rest by price
   const sortedPlayers = [...teamPlayers].sort((a, b) => {
@@ -141,8 +152,7 @@ export default function TeamRosterModal({
                 </thead>
                 <tbody className="divide-y divide-dark-700 bg-dark-800/50">
                   {sortedPlayers.map((player) => {
-                    const linkedUser = player.userId ? allUsers.find(u => u.id === player.userId) : null;
-                    const photoUrl = player.photoUrl || linkedUser?.photoUrl;
+                    const photoUrl = player.photoUrl;
                     
                     // Determine display tag
                     let displayTag = player.playerTag || 'PLAYER';
@@ -231,24 +241,23 @@ export default function TeamRosterModal({
           isOpen={!!editingPlayer}
           onClose={() => setEditingPlayer(null)}
           player={editingPlayer}
-          onSave={(updatedPlayer) => {
-            db.savePlayer(updatedPlayer);
-            
-            const auctionPlayers = db.getPlayers(updatedPlayer.auctionId);
-            const idx = auctionPlayers.findIndex(p => p.id === updatedPlayer.id);
-            if (idx !== -1) auctionPlayers[idx] = updatedPlayer;
-            
-            const teamSpent = auctionPlayers
-              .filter(p => p.soldToTeamId === team.id && p.status === 'sold')
-              .reduce((sum, p) => sum + (p.soldPrice || 0), 0);
-            
-            const t = db.getTeam(team.id);
-            if (t) {
-              db.saveTeam({ ...t, pointsSpent: teamSpent });
-            }
+          onSave={async (updatedPlayer) => {
+            try {
+              await api.updatePlayer(updatedPlayer.id, updatedPlayer as unknown as Record<string, unknown>);
 
-            setEditingPlayer(null);
-            if (onPlayerUpdate) onPlayerUpdate();
+              const playersRes = await api.getPlayers({ auctionId: updatedPlayer.auctionId });
+              const auctionPlayers = (playersRes.data as unknown as Player[]) || [];
+              const teamSpent = auctionPlayers
+                .filter((p) => p.soldToTeamId === team.id && p.status === 'sold')
+                .reduce((sum, p) => sum + (p.soldPrice || 0), 0);
+
+              await api.updateTeam(team.id, { pointsSpent: teamSpent });
+              await loadTeamPlayers();
+              setEditingPlayer(null);
+              onPlayerUpdate?.();
+            } catch (error) {
+              console.error('Failed to update player in roster modal', error);
+            }
           }}
         />
       )}

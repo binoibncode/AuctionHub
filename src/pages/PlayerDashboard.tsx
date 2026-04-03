@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { db } from '../services/db';
-import { Auction, AuctionRegistration, Team } from '../types';
+import { Auction, Player, Team } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { format } from 'date-fns';
 import TeamRosterModal from '../components/auction/TeamRosterModal';
+import { api } from '../services/api';
+import { SPORT_CATEGORIES } from '../constants/sports';
 import {
   Hash, Calendar, MapPin, Users, CheckCircle,
   Clock, Zap, Shield, Eye,
@@ -13,33 +14,65 @@ export default function PlayerDashboard() {
   const { user } = useAuth();
   const [code, setCode] = useState('');
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
-  const [registrations, setRegistrations] = useState<AuctionRegistration[]>([]);
+  const [registrations, setRegistrations] = useState<Array<{
+    id: string;
+    auctionId: Auction | null;
+    playerId: Player | null;
+    registeredAt: string;
+  }>>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
-  const categories = db.getCategories();
+  const [teams, setTeams] = useState<Team[]>([]);
+  const categories = SPORT_CATEGORIES;
 
   useEffect(() => {
-    if (user) setRegistrations(db.getRegistrationsByUser(user.id));
+    const load = async () => {
+      if (!user) return;
+      try {
+        const [registrationsRes, teamsRes] = await Promise.all([
+          api.getMyRegistrations(),
+          api.getTeams(),
+        ]);
+        setRegistrations((registrationsRes.data as unknown as Array<{
+          id: string;
+          auctionId: Auction | null;
+          playerId: Player | null;
+          registeredAt: string;
+        }>) || []);
+        setTeams((teamsRes.data as unknown as Team[]) || []);
+      } catch (error) {
+        console.error('Failed to load player dashboard data', error);
+      }
+    };
+
+    void load();
   }, [user]);
 
-  const handleJoin = () => {
+  const handleJoin = async () => {
     if (!user || !code.trim()) return;
-    const result = db.registerPlayerForAuction(user.id, code.trim());
-    setMessage({ text: result.message, ok: result.success });
-    if (result.success) {
+
+    try {
+      await api.registerPlayerForAuction(code.trim(), {});
+      setMessage({ text: 'Successfully registered for this auction!', ok: true });
       setCode('');
-      setRegistrations(db.getRegistrationsByUser(user.id));
+      const registrationsRes = await api.getMyRegistrations();
+      setRegistrations((registrationsRes.data as unknown as Array<{
+        id: string;
+        auctionId: Auction | null;
+        playerId: Player | null;
+        registeredAt: string;
+      }>) || []);
+    } catch (error) {
+      setMessage({ text: error instanceof Error ? error.message : 'Failed to join auction.', ok: false });
     }
   };
 
-  const getAuction = (id: string): Auction | undefined => db.getAuction(id);
   const getPlayerTeam = (playerId?: string, soldToTeamId?: string): Team | null => {
     if (soldToTeamId) {
-      return db.getTeam(soldToTeamId) || null;
+      return teams.find((team) => team.id === soldToTeamId) || null;
     }
     if (!playerId) {
       return null;
     }
-    const teams = db.getTeams();
     return teams.find(team => team.ownerPlayerId === playerId || team.iconPlayerId === playerId) || null;
   };
 
@@ -100,10 +133,10 @@ export default function PlayerDashboard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {registrations.map(reg => {
-              const auction = getAuction(reg.auctionId);
+              const auction = reg.auctionId;
               if (!auction) return null;
               const cat = categories.find(c => c.id === auction.categoryId);
-              const player = db.getPlayer(reg.playerId);
+              const player = reg.playerId;
               const soldTeam = getPlayerTeam(player?.id, player?.soldToTeamId);
 
               return (

@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, Crown, CheckCircle } from 'lucide-react';
 import PublicNavbar from '../components/layout/PublicNavbar';
 import Swal from 'sweetalert2';
-import { db } from '../services/db';
+import { api } from '../services/api';
 import { PricingPlan } from '../types';
 
 export default function PricingPlans() {
@@ -11,7 +11,17 @@ export default function PricingPlans() {
   const [processing, setProcessing] = useState<string | null>(null);
 
   useEffect(() => {
-    setPlans(db.getPricingPlans());
+    const loadPlans = async () => {
+      try {
+        const res = await api.getPricingPlans();
+        setPlans((res.data as unknown as PricingPlan[]) || []);
+      } catch (error) {
+        console.error('Failed to load pricing plans', error);
+        setPlans([]);
+      }
+    };
+
+    void loadPlans();
   }, []);
 
   const handleSelect = (plan: PricingPlan) => {

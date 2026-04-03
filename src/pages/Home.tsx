@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { db } from '../services/db';
-import { Auction, Player } from '../types';
+import { api } from '../services/api';
+import { Auction, Player, Team } from '../types';
 import PublicNavbar from '../components/layout/PublicNavbar';
 import {
   Flame, Calendar, Users, Gavel, Trophy, ArrowRight,
@@ -11,10 +11,26 @@ import {
 export default function Home() {
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
 
   useEffect(() => {
-    setAuctions(db.getAuctions());
-    setPlayers(db.getPlayers());
+    const load = async () => {
+      try {
+        const [auctionsRes, playersRes, teamsRes] = await Promise.all([
+          api.getAuctions(),
+          api.getPlayers(),
+          api.getTeams(),
+        ]);
+
+        setAuctions((auctionsRes.data as unknown as Auction[]) || []);
+        setPlayers((playersRes.data as unknown as Player[]) || []);
+        setTeams((teamsRes.data as unknown as Team[]) || []);
+      } catch (error) {
+        console.error('Failed to load homepage data from API', error);
+      }
+    };
+
+    void load();
   }, []);
 
   const liveAuctions = auctions.filter(a => a.status === 'live');
@@ -230,7 +246,7 @@ export default function Home() {
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {trendingPlayers.map(player => {
-                const team = player.soldToTeamId ? db.getTeams().find(t => t.id === player.soldToTeamId) : null;
+                const team = player.soldToTeamId ? teams.find(t => t.id === player.soldToTeamId) : null;
                 return (
                   <div key={player.id} className="card p-4 hover:border-accent-500/30 transition-all group hover:-translate-y-1">
                     <div className="flex items-center gap-3 mb-3">

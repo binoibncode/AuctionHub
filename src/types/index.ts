@@ -4,7 +4,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  password: string;
+  password?: string;
   phone?: string;
   city?: string;
   photoUrl?: string;
@@ -20,29 +20,6 @@ export interface SportCategory {
 }
 
 export type AuctionStatus = 'upcoming' | 'live' | 'closed';
-
-export interface AuctionItem {
-  id: string;
-  categoryId: string;
-  title: string;
-  description: string;
-  imageUrl: string;
-  basePrice: number;
-  currentPrice: number;
-  endTime: string; // ISO String
-  status: AuctionStatus;
-  winnerId?: string;
-  organizerId: string;
-}
-
-export interface Bid {
-  id: string;
-  itemId: string;
-  userId: string;
-  userName: string;
-  amount: number;
-  timestamp: string; // ISO String
-}
 
 // ─── Sports Draft Auction System ─────────────────────────────
 

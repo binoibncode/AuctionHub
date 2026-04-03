@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { db } from '../services/db';
+import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Auction } from '../types';
+import { SPORT_CATEGORIES } from '../constants/sports';
 import { format } from 'date-fns';
 import {
   Plus, Search, MapPin, Users,
@@ -15,24 +16,58 @@ type TabStatus = 'live' | 'upcoming' | 'closed';
 export default function OrganizerDashboard() {
   const { user } = useAuth();
   const [auctions, setAuctions] = useState<Auction[]>([]);
+  const [teamCounts, setTeamCounts] = useState<Record<string, number>>({});
+  const [playerCounts, setPlayerCounts] = useState<Record<string, number>>({});
+  const [soldPlayerCounts, setSoldPlayerCounts] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [activeTab, setActiveTab] = useState<TabStatus>('live');
-  const categories = db.getCategories();
+  const categories = SPORT_CATEGORIES;
 
   useEffect(() => {
-    loadAuctions();
-  }, []);
+    void loadAuctions();
+  }, [user?.id]);
 
-  const loadAuctions = () => {
-    const all = db.getAuctions().filter(a => a.organizerId === user?.id);
-    setAuctions(all);
+  const loadAuctions = async () => {
+    const [auctionRes, teamRes, playerRes] = await Promise.all([
+      api.getAuctions(),
+      api.getTeams(),
+      api.getPlayers(),
+    ]);
+
+    const allAuctions = (auctionRes.data || []) as unknown as Auction[];
+    const ownedAuctions = allAuctions.filter((a) => a.organizerId === user?.id);
+    const auctionIdSet = new Set(ownedAuctions.map((a) => a.id));
+
+    const nextTeamCounts: Record<string, number> = {};
+    const teams = (teamRes.data || []) as Array<{ auctionId: string }>;
+    teams.forEach((team) => {
+      if (!auctionIdSet.has(String(team.auctionId))) return;
+      nextTeamCounts[String(team.auctionId)] = (nextTeamCounts[String(team.auctionId)] || 0) + 1;
+    });
+
+    const nextPlayerCounts: Record<string, number> = {};
+    const nextSoldPlayerCounts: Record<string, number> = {};
+    const players = (playerRes.data || []) as Array<{ auctionId: string; status: string }>;
+    players.forEach((player) => {
+      const auctionId = String(player.auctionId);
+      if (!auctionIdSet.has(auctionId)) return;
+      nextPlayerCounts[auctionId] = (nextPlayerCounts[auctionId] || 0) + 1;
+      if (player.status === 'sold') {
+        nextSoldPlayerCounts[auctionId] = (nextSoldPlayerCounts[auctionId] || 0) + 1;
+      }
+    });
+
+    setAuctions(ownedAuctions);
+    setTeamCounts(nextTeamCounts);
+    setPlayerCounts(nextPlayerCounts);
+    setSoldPlayerCounts(nextSoldPlayerCounts);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this auction?')) {
-      db.deleteAuction(id);
-      loadAuctions();
+      await api.deleteAuction(id);
+      await loadAuctions();
     }
   };
 
@@ -148,9 +183,9 @@ export default function OrganizerDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {filtered.map(auction => {
             const cat = categories.find(c => c.id === auction.categoryId);
-            const teams = db.getTeams(auction.id);
-            const players = db.getPlayers(auction.id);
-            const soldPlayers = players.filter(p => p.status === 'sold').length;
+            const teamCount = teamCounts[auction.id] || 0;
+            const playerCount = playerCounts[auction.id] || 0;
+            const soldPlayers = soldPlayerCounts[auction.id] || 0;
 
             return (
               <div key={auction.id} className="card hover:border-dark-600 transition-all duration-300">
@@ -186,10 +221,10 @@ export default function OrganizerDashboard() {
                       {cat?.icon} {cat?.name}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Users className="w-3.5 h-3.5" /> {players.length} Players
+                      <Users className="w-3.5 h-3.5" /> {playerCount} Players
                     </span>
                     <span className="flex items-center gap-1">
-                      <Users className="w-3.5 h-3.5" /> {teams.length} Teams
+                      <Users className="w-3.5 h-3.5" /> {teamCount} Teams
                     </span>
                   </div>
                 </div>
@@ -220,16 +255,16 @@ export default function OrganizerDashboard() {
                 </div>
 
                 {/* Progress (for live auctions) */}
-                {auction.status === 'live' && players.length > 0 && (
+                {auction.status === 'live' && playerCount > 0 && (
                   <div className="px-5 py-2">
                     <div className="flex justify-between text-xs text-dark-500 mb-1">
                       <span>Players Sold</span>
-                      <span>{soldPlayers}/{players.length}</span>
+                      <span>{soldPlayers}/{playerCount}</span>
                     </div>
                     <div className="w-full bg-dark-700 rounded-full h-1.5">
                       <div
                         className="bg-primary-500 h-1.5 rounded-full transition-all"
-                        style={{ width: `${(soldPlayers / players.length) * 100}%` }}
+                        style={{ width: `${(soldPlayers / playerCount) * 100}%` }}
                       />
                     </div>
                   </div>

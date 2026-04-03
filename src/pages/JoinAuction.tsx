@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../services/db';
+import { api } from '../services/api';
+import { SPORT_CATEGORIES } from '../constants/sports';
 import { Auction, Player } from '../types';
 import { format } from 'date-fns';
 import {
@@ -190,7 +191,8 @@ export default function JoinAuction() {
   const [status, setStatus] = useState<'loading' | 'found' | 'notfound' | 'joined' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const categories = db.getCategories();
+  const [registeredCount, setRegisteredCount] = useState(0);
+  const categories = SPORT_CATEGORIES;
 
   // Extended Player Fields State
   const [formData, setFormData] = useState<Partial<Player>>({
@@ -223,14 +225,31 @@ export default function JoinAuction() {
   }, [user]);
 
   useEffect(() => {
-    if (!code) { setStatus('notfound'); return; }
-    const a = db.getAuctionByCode(code);
-    if (a) {
-      setAuction(a);
-      setStatus('found');
-    } else {
-      setStatus('notfound');
-    }
+    const loadAuction = async () => {
+      if (!code) {
+        setStatus('notfound');
+        return;
+      }
+
+      setStatus('loading');
+      try {
+        const auctionRes = await api.getAuctionByCode(code);
+        const auctionData = (auctionRes.data || null) as unknown as Auction | null;
+        if (!auctionData) {
+          setStatus('notfound');
+          return;
+        }
+
+        setAuction(auctionData);
+        const playersRes = await api.getPlayers({ auctionId: auctionData.id });
+        setRegisteredCount((playersRes.data || []).length);
+        setStatus('found');
+      } catch {
+        setStatus('notfound');
+      }
+    };
+
+    void loadAuction();
   }, [code]);
 
   useEffect(() => {
@@ -290,7 +309,7 @@ export default function JoinAuction() {
     });
   };
 
-  const handleJoin = (e: React.FormEvent) => {
+  const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !auction) return;
 
@@ -301,20 +320,23 @@ export default function JoinAuction() {
     }
 
     setIsSubmitting(true);
-    const result = db.registerPlayerForAuction(user.id, auction.auctionCode, formData);
-    setIsSubmitting(false);
-
-    if (result.success) {
+    try {
+      await api.registerPlayerForAuction(auction.auctionCode, {
+        ...formData,
+        sport: cat?.name || 'Draft Player',
+        role: formData.category || formData.role || 'Registered Player',
+      });
       setStatus('joined');
-      setMessage(result.message);
-    } else {
+      setMessage(`Successfully registered for "${auction.name}"!`);
+    } catch (error) {
       setStatus('error');
-      setMessage(result.message);
+      setMessage(error instanceof Error ? error.message : 'Registration failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const cat = auction ? categories.find(c => c.id === auction.categoryId) : null;
-  const players = auction ? db.getPlayers(auction.id) : [];
   const availableSkills = getSkillOptions(currentSportType, formData.specification, formData.category);
 
   // Not logged in
@@ -390,7 +412,7 @@ export default function JoinAuction() {
               </div>
               <div className="flex items-center gap-3 text-dark-300 text-sm">
                 <Users className="w-5 h-5 text-orange-400" />
-                <span>Registered:<br/><span className="text-white font-bold">{players.length} Players</span></span>
+                <span>Registered:<br/><span className="text-white font-bold">{registeredCount} Players</span></span>
               </div>
             </div>
 

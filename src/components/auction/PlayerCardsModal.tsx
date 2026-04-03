@@ -3,7 +3,7 @@ import { X, Search, Printer, User as UserIcon, Shield } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { format } from 'date-fns';
 import { Auction, Player } from '../../types';
-import { db } from '../../services/db';
+import { SPORT_CATEGORIES } from '../../constants/sports';
 
 interface PlayerCardsModalProps {
   isOpen: boolean;
@@ -20,8 +20,7 @@ export default function PlayerCardsModal({ isOpen, onClose, auction, players }: 
   // All hooks above this line — then the guard
   if (!isOpen || !auction) return null;
 
-  const allUsers = db.getUsers();
-  const categories = db.getCategories();
+  const categories = SPORT_CATEGORIES;
   const cat = categories.find(c => c.id === auction.categoryId);
 
   // Compute filtered players inline (no hook needed)
@@ -40,24 +39,24 @@ export default function PlayerCardsModal({ isOpen, onClose, auction, players }: 
     if (sport.includes('cricket')) {
       return [
         { label: 'ROLE / CATEGORY', value: player.role || player.category || '-' },
-        { label: 'PLACE', value: (() => { const u = player.userId ? allUsers.find(u => u.id === player.userId) : null; return u?.city || player.extraDetails || '-'; })() },
+        { label: 'PLACE', value: player.extraDetails || '-' },
         { label: 'SKILL', value: player.skill || '-' },
-        { label: 'CONTACT', value: (() => { const u = player.userId ? allUsers.find(u => u.id === player.userId) : null; return u?.phone || '-'; })() },
+        { label: 'CONTACT', value: '-' },
       ];
     }
     if (sport.includes('football')) {
       return [
         { label: 'POSITION', value: player.role || '-' },
-        { label: 'PLACE', value: (() => { const u = player.userId ? allUsers.find(u => u.id === player.userId) : null; return u?.city || player.extraDetails || '-'; })() },
+        { label: 'PLACE', value: player.extraDetails || '-' },
         { label: 'SKILL', value: player.skill || '-' },
-        { label: 'CONTACT', value: (() => { const u = player.userId ? allUsers.find(u => u.id === player.userId) : null; return u?.phone || '-'; })() },
+        { label: 'CONTACT', value: '-' },
       ];
     }
     return [
       { label: 'ROLE / CATEGORY', value: player.role || player.category || '-' },
-      { label: 'PLACE', value: (() => { const u = player.userId ? allUsers.find(u => u.id === player.userId) : null; return u?.city || player.extraDetails || '-'; })() },
+      { label: 'PLACE', value: player.extraDetails || '-' },
       { label: 'SKILL', value: player.skill || '-' },
-      { label: 'CONTACT', value: (() => { const u = player.userId ? allUsers.find(u => u.id === player.userId) : null; return u?.phone || '-'; })() },
+      { label: 'CONTACT', value: '-' },
     ];
   };
 
@@ -184,8 +183,7 @@ export default function PlayerCardsModal({ isOpen, onClose, auction, players }: 
                 style={{ pageBreakAfter: 'always' }}
               >
                 {pagePlayers.map((player, cardIdx) => {
-                  const linkedUser = player.userId ? allUsers.find(u => u.id === player.userId) : null;
-                  const photoUrl = player.photoUrl || linkedUser?.photoUrl;
+                  const photoUrl = player.photoUrl;
                   const serial = playerSerial(pageIdx, cardIdx);
                   const details = getCardDetails(player);
 
